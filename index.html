@@ -39,6 +39,7 @@
   --moon-lit:#E6E0CB; --moon-dark:#2E3A3D; color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--f-body)}
 button,input,select{font:inherit;color:inherit}
@@ -198,7 +199,8 @@ details ul{padding-left:18px;margin:8px 0 0;max-width:72ch}
 .topright{display:flex;gap:8px;align-items:center;flex:1 1 340px;max-width:600px}
 .topright .search{flex:1 1 auto;max-width:none}
 .mapbtn{flex:none;display:flex;align-items:center;gap:6px;padding:11px 16px;border-radius:999px;border:1px solid var(--line);background:var(--ink);color:var(--bg);font-weight:600;cursor:pointer}
-.mapview{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
+.mapview{position:fixed;inset:0;z-index:1500;background:var(--bg);display:none;flex-direction:column}
+.mapview.open{display:flex}
 .mapbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;border-bottom:1px solid var(--line);background:var(--surface)}
 .mapbar h2{margin:0;font:700 22px/1 var(--f-display);text-transform:uppercase;letter-spacing:.03em}
 .mapbar .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -336,7 +338,7 @@ details ul{padding-left:18px;margin:8px 0 0;max-width:72ch}
   </section>
 </div>
 
-<div class="mapview" id="mapView" hidden>
+<div class="mapview" id="mapView" aria-hidden="true">
   <div class="mapbar">
     <h2>River map</h2>
     <div class="ctl">
@@ -1181,7 +1183,7 @@ function loadLeaflet(){
 }
 function mapStatus(t){const el=$("#mapStatus");el.hidden=!t;el.textContent=t||""}
 async function openMap(){
-  const mv=$("#mapView");mv.hidden=false;document.body.style.overflow="hidden";
+  const mv=$("#mapView");mv.classList.add("open");mv.setAttribute("aria-hidden","false");document.body.style.overflow="hidden";
   try{history.pushState({map:1},"")}catch(e){}
   try{await loadLeaflet()}catch(e){mapStatus("The map couldn’t load. Check your internet connection.");return}
   if(!map)initMap();
@@ -1190,10 +1192,10 @@ async function openMap(){
   drawMarkers();queueVisible();
 }
 function closeMap(fromPop){
-  $("#mapView").hidden=true;document.body.style.overflow="";
+  $("#mapView").classList.remove("open");$("#mapView").setAttribute("aria-hidden","true");document.body.style.overflow="";
   if(!fromPop){try{if(history.state&&history.state.map)history.back()}catch(e){}}
 }
-window.addEventListener("popstate",()=>{if(!$("#mapView").hidden)closeMap(true)});
+window.addEventListener("popstate",()=>{if($("#mapView").classList.contains("open"))closeMap(true)});
 function initMap(){
   map=L.map("mapEl",{zoomControl:true,preferCanvas:true,renderer:L.canvas({tolerance:10})});
   baseLayers={
@@ -1286,9 +1288,10 @@ async function pumpGeo(){
     }).catch(()=>{geoFailed[rid(r)]=1}).finally(()=>{geoBusy--;if(!geoQueue.length&&!geoBusy)mapStatus("");else pumpGeo()});
   }
 }
+renderMapSp();
 $("#mapBtn").onclick=()=>{renderMapSp();openMap()};
 $("#mapClose").onclick=()=>closeMap();
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#mapView").hidden)closeMap()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#mapView").classList.contains("open"))closeMap()});
 
 /* settings */
 $("#keyIn").value=state.usgsKey;
