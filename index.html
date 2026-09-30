@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Seam Line</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Seam Line">
+<meta name="theme-color" content="#141F22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: river "today" panel beside a water / conditions / moon stack; fly box, 7-day strip and nearby waters below. One column on phones. */
+:root{
+  --bg:#EBEFEC; --surface:#F8FAF8; --sunk:#E0E6E2; --ink:#18252A; --muted:#566670; --line:#CCD6D2;
+  --accent:#C95A22; --water:#2A6A78; --good:#3A8550; --fair:#BF9028; --slow:#93A09C; --bad:#C23A30; --cold:#7FA3B8;
+  --band-major:rgba(42,106,120,.20); --band-minor:rgba(42,106,120,.09); --band-sun:rgba(201,90,34,.11);
+  --moon-lit:#ECE6D2; --moon-dark:#3A4548;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1517; --surface:#141F22; --sunk:#1B282C; --ink:#E0E9EA; --muted:#8FA2A8; --line:#263539;
+  --accent:#EB7A40; --water:#5FAAB8; --good:#5FB373; --fair:#D8AC48; --slow:#687A7E; --bad:#EE6A5E; --cold:#6F93A8;
+  --band-major:rgba(95,170,184,.22); --band-minor:rgba(95,170,184,.10); --band-sun:rgba(235,122,64,.13);
+  --moon-lit:#E6E0CB; --moon-dark:#2E3A3D; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D1517; --surface:#141F22; --sunk:#1B282C; --ink:#E0E9EA; --muted:#8FA2A8; --line:#263539;
+  --accent:#EB7A40; --water:#5FAAB8; --good:#5FB373; --fair:#D8AC48; --slow:#687A7E; --bad:#EE6A5E; --cold:#6F93A8;
+  --band-major:rgba(95,170,184,.22); --band-minor:rgba(95,170,184,.10); --band-sun:rgba(235,122,64,.13);
+  --moon-lit:#E6E0CB; --moon-dark:#2E3A3D; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--f-body)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--water);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:18px 40px;display:grid;gap:16px}
+.eyebrow{font:500 11px/1 var(--f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.note{font-size:13px;color:var(--muted)}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{margin:0;font:700 30px/1 var(--f-display);letter-spacing:.03em;text-transform:uppercase}
+.brand small{display:block;font:500 11px/1.2 var(--f-data);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+.search{position:relative;flex:1 1 300px;max-width:500px}
+.search input{width:100%;padding:12px 14px 12px 40px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.search>svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.16);z-index:20;overflow:hidden;max-height:70vh;overflow-y:auto}
+.results .grp{font:500 10px var(--f-data);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:10px 14px 4px}
+.results button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:0;padding:9px 14px;cursor:pointer}
+.results button:hover,.results button:focus-visible{background:var(--sunk)}
+.results .sub{color:var(--muted);font-size:13px}
+.results .msg{padding:10px 14px;color:var(--muted);font-size:14px}
+.sp-mini{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;align-self:center}
+.sp-mini i{font:500 10px/1 var(--f-data);font-style:normal;padding:3px 4px;border-radius:4px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+
+.banner{padding:12px 14px;border-radius:12px;background:var(--band-sun);border:1px solid var(--line);font-size:14px}
+.banner b{display:block;margin-bottom:2px}
+
+/* species + chips */
+.rowbar{display:grid;gap:10px}
+.species{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.species button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.species button .dot{width:6px;height:6px;border-radius:50%;background:var(--good)}
+.species button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lbl{font:500 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.chip{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:14px}
+.chip button{background:none;border:0;cursor:pointer;padding:5px 4px 5px 12px}
+.chip button.x{padding:5px 10px 5px 6px;color:var(--muted)}
+.chip.on{border-color:var(--water)}
+
+/* panels */
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+.side{display:grid;gap:16px;min-width:0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:800px){.grid,.two{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+
+/* hero */
+.place{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.place h2{margin:0;font:600 30px/1.02 var(--f-display);text-transform:uppercase;letter-spacing:.02em;text-wrap:balance}
+.place .when{color:var(--muted);font-size:14px;margin-top:4px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.badge{font:500 11px/1 var(--f-data);letter-spacing:.06em;text-transform:uppercase;padding:5px 7px;border-radius:5px;background:var(--sunk);color:var(--muted)}
+.save{flex:none;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+.save[aria-pressed="true"]{border-color:var(--water);color:var(--water)}
+.score{display:flex;gap:18px;align-items:center;margin:18px 0 6px;flex-wrap:wrap}
+.dial{position:relative;width:108px;height:108px;flex:none}
+.dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dial .num{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font:700 44px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.dial .num span{display:block;font:500 9px var(--f-data);letter-spacing:.1em;color:var(--muted);margin-top:3px}
+.verdict{flex:1 1 240px;min-width:0}
+.tag{display:inline-block;font:600 14px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:6px;color:#fff}
+.verdict p{margin:8px 0 0;max-width:62ch}
+.best{margin-top:8px;font-weight:600}
+.best b{color:var(--accent)}
+.warns{display:grid;gap:6px;margin-top:12px}
+.warn{font-size:14px;padding:8px 10px;border-radius:8px;background:var(--sunk);border-left:3px solid var(--fair)}
+.warn.hot{border-left-color:var(--bad)}
+
+/* chart */
+.chartwrap{margin-top:18px}
+.chart{position:relative;height:140px;border-bottom:1px solid var(--line)}
+.band{position:absolute;top:0;bottom:0;pointer-events:none}
+.band.major{background:var(--band-major)}.band.minor{background:var(--band-minor)}.band.sun{background:var(--band-sun)}
+.nowline{position:absolute;top:-4px;bottom:0;width:2px;background:var(--ink);opacity:.55;pointer-events:none}
+.bars{position:absolute;inset:0;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;padding-top:8px}
+.bars button{border:0;padding:0;border-radius:3px 3px 0 0;cursor:pointer;min-height:4px}
+.bars button[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px}
+.axis{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));font:400 11px var(--f-data);color:var(--muted);margin-top:4px}
+.axis span{white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:1px solid var(--line)}
+.hourinfo{margin-top:12px;padding:10px 12px;background:var(--sunk);border-radius:10px;font:400 13px/1.5 var(--f-data);font-variant-numeric:tabular-nums}
+
+/* water */
+.bigrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.big{font:700 34px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.big small{font:500 14px var(--f-body);color:var(--muted);margin-left:4px}
+.pill{font:600 12px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:5px;color:#fff}
+.therm{position:relative;height:12px;border-radius:6px;margin:12px 0 4px;overflow:visible}
+.therm .mk{position:absolute;top:-5px;width:4px;height:22px;border-radius:2px;background:var(--ink);transform:translateX(-50%);box-shadow:0 0 0 2px var(--surface)}
+.thermaxis{display:flex;justify-content:space-between;font:400 11px var(--f-data);color:var(--muted)}
+.divider{height:1px;background:var(--line);margin:16px 0}
+.spark{width:100%;height:auto;display:block;margin-top:8px}
+.gsel{margin-top:10px;display:grid;gap:4px}
+.gsel button{display:flex;justify-content:space-between;gap:8px;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:13px}
+.gsel button:hover{background:var(--sunk)}
+.gsel button[aria-pressed="true"]{border-color:var(--line);background:var(--sunk)}
+.gsel span.v{font-family:var(--f-data);white-space:nowrap}
+a{color:var(--water)}
+
+/* conditions */
+.conds{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px;margin:0}
+.conds div{min-width:0}
+.conds dt{font:500 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.conds dd{margin:3px 0 0;font:600 21px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.conds dd small{display:block;font:400 13px/1.3 var(--f-body);color:var(--muted);margin-top:2px}
+
+/* moon */
+.moonrow{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.moonrow svg{flex:none}
+.moonrow strong{display:block;font:600 19px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.03em}
+.moonrow span{font-size:13px;color:var(--muted)}
+.periods{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.periods li{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:8px;background:var(--sunk);font-size:14px}
+.periods li b{font:600 13px var(--f-display);letter-spacing:.08em;text-transform:uppercase}
+.periods li.major b{color:var(--water)}
+.periods li span{font-family:var(--f-data);font-size:13px;white-space:nowrap}
+
+/* fly box */
+.flies{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.flies li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--sunk)}
+.flies .ty{font:500 10px/1 var(--f-data);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:4px;color:#fff;min-width:64px;text-align:center}
+.flies .nm{font-weight:600}
+.flies .nm small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.flies .sz{font:500 12px var(--f-data);color:var(--muted);white-space:nowrap}
+.setup{margin-top:12px;font-size:14px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
+.setup b{font:600 13px var(--f-display);letter-spacing:.08em;text-transform:uppercase;margin-right:6px}
+
+/* outlook + nearby */
+.outlook{overflow-x:auto}
+.days{display:grid;grid-template-columns:repeat(7,minmax(96px,1fr));gap:8px;min-width:680px}
+.day{background:var(--sunk);border:1px solid transparent;border-radius:12px;padding:10px;text-align:left;cursor:pointer;display:grid;gap:6px}
+.day[aria-pressed="true"]{border-color:var(--ink);background:var(--surface)}
+.day .d{font:600 16px/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em}
+.day .d small{display:block;font:400 12px var(--f-body);color:var(--muted);text-transform:none;letter-spacing:0;margin-top:2px}
+.day .n{font:700 30px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.day .meter{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.day .meter i{display:block;height:100%}
+.day .t{font:400 12px var(--f-data);color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:4px}
+.near{display:grid;gap:6px;list-style:none;margin:0;padding:0}
+.near button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;text-align:left;background:var(--sunk);border:0;border-radius:10px;padding:9px 12px;cursor:pointer}
+.near button:hover{outline:1px solid var(--line)}
+.near .nm{font-weight:600}
+.near .ds{font:500 12px var(--f-data);color:var(--muted);white-space:nowrap}
+.near .sub{font-size:13px;color:var(--muted);grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+details{font-size:14px}
+details summary{cursor:pointer;font-weight:600}
+details ul{padding-left:18px;margin:8px 0 0;max-width:72ch}
+.keyrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.keyrow input{flex:1 1 220px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.keyrow button{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);cursor:pointer}
+.err{padding:12px 14px;border-radius:10px;background:var(--band-sun);font-size:14px;margin-top:12px}
+.err button{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.loading{opacity:.55;transition:opacity .2s}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
+        <path d="M2 22c5-6 10-6 16 0s11 6 16 0" fill="none" stroke="var(--water)" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M2 29c5-6 10-6 16 0s11 6 16 0" fill="none" stroke="var(--water)" stroke-width="2.4" stroke-linecap="round" opacity=".5"/>
+        <path d="M24 4 L12 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M12 16c-1.5 2-.5 4 1.5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="24" cy="4" r="2.4" fill="var(--accent)"/>
+      </svg>
+      <div><h1>Seam Line</h1><small>Rivers · trout · steelhead · smallmouth</small></div>
+    </div>
+    <div class="search" role="search">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" stroke-width="1.6"/></svg>
+      <input id="q" type="search" autocomplete="off" placeholder="Search a river, creek, state or town" aria-label="Search rivers and places">
+      <div class="results" id="results" hidden></div>
+    </div>
+  </header>
+
+  <div class="banner" id="netBanner" hidden></div>
+
+  <div class="rowbar">
+    <div class="species" id="species" aria-label="Target species"></div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="grid">
+    <section class="panel" id="hero" aria-live="polite">
+      <div class="place">
+        <div><h2 id="placeName">Loading…</h2><div class="when" id="placeWhen"></div><div class="badges" id="badges"></div></div>
+        <button class="save" id="saveBtn" aria-pressed="false">☆ Save</button>
+      </div>
+      <div class="score">
+        <div class="dial">
+          <svg viewBox="0 0 108 108" aria-hidden="true">
+            <circle cx="54" cy="54" r="45" fill="none" stroke="var(--line)" stroke-width="9"/>
+            <circle id="dialArc" cx="54" cy="54" r="45" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="0 999"/>
+          </svg>
+          <div class="num"><div><div id="idx">–</div><span>FISHABILITY</span></div></div>
+        </div>
+        <div class="verdict">
+          <span class="tag" id="tag" style="background:var(--slow)">…</span>
+          <div class="best" id="best"></div>
+          <p id="summary"></p>
+        </div>
+      </div>
+      <div class="warns" id="warns"></div>
+      <div id="errBox"></div>
+      <div class="chartwrap" id="chartWrap">
+        <p class="eyebrow">Hourly outlook for <span id="spName"></span></p>
+        <div class="chart" id="chart"><div class="bars" id="bars"></div></div>
+        <div class="axis" id="axis"></div>
+        <div class="legend">
+          <span><i style="background:var(--band-major)"></i>Major solunar</span>
+          <span><i style="background:var(--band-minor)"></i>Minor solunar</span>
+          <span><i style="background:var(--band-sun)"></i>Dawn / dusk</span>
+        </div>
+        <div class="hourinfo" id="hourInfo">Tap a bar for hour details.</div>
+      </div>
+    </section>
+
+    <div class="side">
+      <section class="panel">
+        <p class="eyebrow">Water</p>
+        <div id="water"></div>
+      </section>
+      <section class="panel">
+        <p class="eyebrow">Weather</p>
+        <dl class="conds" id="conds"></dl>
+      </section>
+    </div>
+  </div>
+
+  <div class="two">
+    <section class="panel">
+      <p class="eyebrow">Fly box · <span id="flyWhen"></span></p>
+      <ul class="flies" id="flies"></ul>
+      <div class="setup" id="setup"></div>
+    </section>
+    <section class="panel">
+      <p class="eyebrow">Moon &amp; solunar</p>
+      <div class="moonrow" id="moonRow"></div>
+      <ul class="periods" id="periods"></ul>
+    </section>
+  </div>
+
+  <section class="panel" id="outlookPanel">
+    <p class="eyebrow">7-day outlook</p>
+    <div class="outlook"><div class="days" id="days"></div></div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow" id="nearTitle">Nearby waters</p>
+    <ul class="near" id="near"></ul>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>How the fishability score works</summary>
+      <ul>
+        <li><b>Water temperature (32%)</b> against the chosen species' comfort range. Trout score zero-ish at 68°F and up, because fighting fish in warm water can kill them.</li>
+        <li><b>Light (20%)</b>: trout favor low light and overcast; smallmouth warm up in the afternoon in cool months.</li>
+        <li><b>Wind (16%)</b>: casting gets hard above 15 mph.</li>
+        <li><b>Rain and storms (12%)</b>, <b>barometer (10%)</b> and <b>solunar timing (10%)</b>.</li>
+        <li>The day is then scaled by <b>river flow</b> (stable or dropping after a bump is best; a spike means muddy water) and <b>season</b> (run timing for steelhead and salmon).</li>
+        <li>Water temperature and flow come from the nearest matching USGS stream gauge. Without one, water temperature is estimated from recent air temperature and the river type, and marked as an estimate.</li>
+      </ul>
+      <p class="note">Weather: Open-Meteo. Flows: USGS Water Data. River coordinates are approximate access points. Always check state regulations before fishing.</p>
+      <p class="note" style="margin-top:12px">If flow data stops loading, USGS may be rate limiting. A free key from api.waterdata.usgs.gov/signup lifts the limit.</p>
+      <div class="keyrow"><input id="keyIn" type="text" placeholder="Optional USGS API key" aria-label="USGS API key"><button id="keySave">Save key</button></div>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;
+
+/* ================= species ================= */
+const SPECIES={
+  bn:{n:"Brown trout",g:"trout",lo:50,hi:65,stress:70},
+  rb:{n:"Rainbow trout",g:"trout",lo:50,hi:64,stress:68},
+  bk:{n:"Brook trout",g:"trout",lo:48,hi:60,stress:66},
+  ct:{n:"Cutthroat",g:"trout",lo:48,hi:62,stress:67},
+  bt:{n:"Bull trout",g:"trout",lo:44,hi:55,stress:62},
+  sh:{n:"Steelhead",g:"migratory",lo:40,hi:55,stress:65},
+  sa:{n:"Salmon",g:"migratory",lo:44,hi:57,stress:65},
+  ll:{n:"Landlocked salmon",g:"migratory",lo:45,hi:60,stress:68},
+  sm:{n:"Smallmouth",g:"bass",lo:62,hi:78,stress:86}
+};
+const SP_ORDER=["bn","rb","bk","ct","bt","sh","sa","ll","sm"];
+const SHORT={bn:"Brown",rb:"Rainbow",bk:"Brook",ct:"Cutty",bt:"Bull",sh:"Steel",sa:"Salmon",ll:"Landlock",sm:"Smallie"};
+const SEASON={
+  bn:[.5,.5,.7,.9,1,1,.8,.75,.9,1,.8,.55], rb:[.55,.6,.8,.95,1,1,.8,.75,.9,.95,.8,.6],
+  bk:[.4,.45,.6,.85,1,1,.8,.75,.95,1,.7,.45], ct:[.4,.4,.55,.7,.8,.95,1,1,1,.85,.6,.4],
+  bt:[.4,.4,.5,.6,.7,.85,.95,.95,.95,.8,.55,.4],
+  sh_gl:[.8,.85,1,.9,.4,.15,.1,.15,.5,.85,1,.85], sh_pac:[1,1,.9,.6,.4,.5,.6,.7,.8,.7,.6,.9],
+  sa_gl:[0,0,0,.1,.2,.3,.4,.6,1,.9,.3,0], sa_pac:[.1,.1,.2,.4,.6,.8,.8,.9,1,.9,.5,.2],
+  ll:[.3,.3,.4,.8,1,.9,.6,.6,.9,1,.6,.3], sm:[.2,.25,.4,.65,.9,1,1,1,.95,.8,.45,.25]
+};
+const TYPES={T:"Tailwater",F:"Freestone",S:"Spring creek",G:"Great Lakes tributary",P:"Coastal steelhead & salmon",W:"Smallmouth river"};
+
+/* ================= rivers: [name, state, section, lat, lon, type, species, gauge keyword] ================= */
+const RIVERS=[
+["St. Joseph River","IN","Mishawaka – South Bend",41.66,-86.18,"G","sh sa sm bn","ST. JOSEPH"],
+["Trail Creek","IN","Michigan City",41.70,-86.87,"G","sh sa bn","TRAIL"],
+["Little Calumet River (East Branch)","IN","Porter",41.62,-87.06,"G","sh sa","CALUMET"],
+["Pigeon River","IN","Mongo",41.68,-85.28,"F","bn rb","PIGEON"],
+["Sugar Creek","IN","Shades State Park",39.93,-87.07,"W","sm","SUGAR"],
+["Big Walnut Creek","IN","Greencastle",39.65,-86.83,"W","sm","WALNUT"],
+["Tippecanoe River","IN","Winamac",41.05,-86.60,"W","sm","TIPPECANOE"],
+["Wildcat Creek","IN","Lafayette",40.44,-86.80,"W","sm","WILDCAT"],
+["White River (West Fork)","IN","Anderson",40.10,-85.68,"W","sm","WHITE RIVER"],
+["White River (West Fork)","IN","Noblesville",40.05,-86.02,"W","sm","WHITE RIVER"],
+["White River (West Fork)","IN","Broad Ripple – Nora",39.88,-86.13,"W","sm","WHITE RIVER"],
+["East Fork Whitewater River","IN","Brookville Lake tailwater",39.43,-85.00,"T","bn rb","EAST FORK WHITEWATER|E FK WHITEWATER|EF WHITEWATER",{profile:[39,39,44,52,61,70,76,78,76,66,53,43],note:"Brookville releases warm lake-surface water, not cold bottom water. The tailwater runs 70–78°F in summer and early fall, so trout fishing is best from late October through May. It’s a put-and-take fishery stocked by Indiana DNR."}],
+["Au Sable River","MI","Grayling – Mio",44.66,-84.70,"F","bn rb bk","AU SABLE"],
+["Pere Marquette River","MI","Baldwin",43.90,-85.85,"G","bn sh sa rb","PERE MARQUETTE"],
+["Manistee River","MI","Tippy Dam",44.26,-85.94,"G","sh sa bn","MANISTEE"],
+["Muskegon River","MI","Croton Dam",43.44,-85.66,"G","sh sa bn sm","MUSKEGON"],
+["Boardman River","MI","Traverse City",44.67,-85.60,"F","bn bk","BOARDMAN"],
+["Jordan River","MI","East Jordan",45.08,-85.05,"S","bn bk rb","JORDAN"],
+["Two Hearted River","MI","Upper Peninsula",46.70,-85.43,"F","bk bn sh","TWO HEARTED"],
+["Grand River","MI","Grand Rapids",42.97,-85.67,"G","sh sa sm","GRAND"],
+["Huron River","MI","Ann Arbor",42.28,-83.74,"W","sm","HURON"],
+["Mad River","OH","Urbana",40.05,-83.82,"S","bn rb","MAD"],
+["Clear Fork Mohican River","OH","Mohican State Park",40.62,-82.31,"F","bn","MOHICAN"],
+["Grand River","OH","Harpersfield",41.76,-80.95,"G","sh sm","GRAND"],
+["Chagrin River","OH","Willoughby",41.64,-81.41,"G","sh","CHAGRIN"],
+["Rocky River","OH","Cleveland Metroparks",41.43,-81.87,"G","sh","ROCKY"],
+["Conneaut Creek","OH","Conneaut",41.95,-80.55,"G","sh","CONNEAUT"],
+["Little Miami River","OH","Waynesville",39.52,-84.07,"W","sm","LITTLE MIAMI"],
+["Cumberland River","KY","Wolf Creek Dam tailwater",36.79,-85.37,"T","bn rb","CUMBERLAND"],
+["Elkhorn Creek","KY","Frankfort",38.25,-84.80,"W","sm","ELKHORN"],
+["Big South Fork","TN","Big South Fork NRRA",36.48,-84.67,"W","sm","BIG SOUTH FORK"],
+["South Holston River","TN","Bluff City",36.52,-82.08,"T","bn rb","HOLSTON"],
+["Watauga River","TN","Elizabethton",36.33,-82.24,"T","bn rb","WATAUGA"],
+["Clinch River","TN","Norris Dam tailwater",36.21,-84.08,"T","bn rb","CLINCH"],
+["Caney Fork River","TN","Center Hill Dam",36.13,-85.81,"T","bn rb","CANEY FORK"],
+["Hiwassee River","TN","Reliance",35.19,-84.50,"T","rb bn sm","HIWASSEE"],
+["Duck River","TN","Columbia",35.62,-87.03,"W","sm","DUCK"],
+["Harpeth River","TN","Kingston Springs",36.08,-87.10,"W","sm","HARPETH"],
+["Davidson River","NC","Pisgah Forest",35.28,-82.73,"F","bn rb","DAVIDSON"],
+["Nantahala River","NC","Nantahala Gorge",35.33,-83.58,"T","bn rb","NANTAHALA"],
+["Chattahoochee River","GA","Buford Dam tailwater",34.15,-84.08,"T","bn rb","CHATTAHOOCHEE"],
+["Toccoa River","GA","Blue Ridge Dam",34.87,-84.30,"T","rb bn","TOCCOA"],
+["Mossy Creek","VA","Bridgewater",38.35,-79.00,"S","bn","MOSSY"],
+["Jackson River","VA","Covington",37.88,-79.94,"T","bn rb","JACKSON"],
+["Smith River","VA","Bassett",36.70,-80.05,"T","bn","SMITH"],
+["New River","VA","Pembroke – Radford",37.20,-80.62,"W","sm","NEW RIVER"],
+["James River","VA","Scottsville",37.80,-78.49,"W","sm","JAMES"],
+["South Fork Shenandoah River","VA","Luray",38.66,-78.49,"W","sm","SHENANDOAH"],
+["Elk River","WV","Sutton Dam",38.66,-80.70,"T","rb bn","ELK"],
+["New River Gorge","WV","Fayetteville",38.06,-81.08,"W","sm","NEW RIVER"],
+["Gunpowder Falls","MD","Monkton",39.60,-76.60,"T","bn rb","GUNPOWDER"],
+["Savage River","MD","Bloomington",39.52,-79.14,"T","bn bk","SAVAGE"],
+["Potomac River","MD","Point of Rocks",39.27,-77.54,"W","sm","POTOMAC"],
+["Spring Creek","PA","Bellefonte",40.87,-77.79,"S","bn","SPRING CREEK"],
+["Penns Creek","PA","Coburn",40.87,-77.45,"F","bn","PENNS"],
+["Letort Spring Run","PA","Carlisle",40.19,-77.19,"S","bn","LETORT"],
+["Yellow Breeches Creek","PA","Boiling Springs",40.15,-77.13,"S","bn rb","YELLOW BREECHES"],
+["Little Juniata River","PA","Spruce Creek",40.60,-78.10,"F","bn","JUNIATA"],
+["Pine Creek","PA","Waterville",41.31,-77.36,"F","bn rb sm","PINE"],
+["Lehigh River","PA","Lehigh Gorge",40.95,-75.75,"T","bn rb","LEHIGH"],
+["Elk Creek","PA","Girard",42.02,-80.36,"G","sh","ELK"],
+["Allegheny River","PA","Kinzua Dam tailwater",41.84,-79.15,"T","sm bn rb","ALLEGHENY"],
+["French Creek","PA","Meadville",41.64,-80.15,"W","sm","FRENCH"],
+["Susquehanna River","PA","Harrisburg",40.26,-76.89,"W","sm","SUSQUEHANNA"],
+["Juniata River","PA","Lewistown",40.60,-77.57,"W","sm","JUNIATA"],
+["Delaware River","PA","Water Gap",41.03,-75.08,"W","sm","DELAWARE"],
+["Beaverkill River","NY","Roscoe",41.94,-74.91,"F","bn rb","BEAVER KILL"],
+["Willowemoc Creek","NY","Livingston Manor",41.90,-74.83,"F","bn rb bk","WILLOWEMOC"],
+["West Branch Delaware River","NY","Hale Eddy",42.00,-75.38,"T","bn rb","DELAWARE"],
+["Esopus Creek","NY","Phoenicia",42.08,-74.31,"F","rb bn","ESOPUS"],
+["Salmon River","NY","Pulaski",43.56,-76.13,"G","sh sa bn","SALMON"],
+["West Branch Ausable River","NY","Wilmington",44.38,-73.83,"F","bn rb bk","AUSABLE"],
+["Cattaraugus Creek","NY","Gowanda",42.46,-78.94,"G","sh","CATTARAUGUS"],
+["Oak Orchard Creek","NY","Point Breeze",43.37,-78.19,"G","sh sa bn","OAK ORCHARD"],
+["Farmington River","CT","Riverton – Collinsville",41.92,-72.96,"T","bn rb","FARMINGTON"],
+["Housatonic River","CT","Cornwall Bridge",41.82,-73.37,"F","bn rb sm","HOUSATONIC"],
+["Deerfield River","MA","Charlemont",42.63,-72.87,"T","bn rb","DEERFIELD"],
+["Swift River","MA","Belchertown",42.28,-72.34,"T","rb bk","SWIFT"],
+["Battenkill River","VT","Arlington",43.08,-73.15,"F","bn bk","BATTEN KILL"],
+["Androscoggin River","NH","Errol",44.78,-71.13,"T","rb bn bk ll","ANDROSCOGGIN"],
+["Connecticut River","NH","Pittsburg",45.05,-71.39,"T","bk rb ll","CONNECTICUT"],
+["Kennebec River","ME","Solon",44.95,-69.87,"T","bn rb ll","KENNEBEC"],
+["Rapid River","ME","Upton",44.80,-70.95,"F","bk ll","RAPID"],
+["West Branch Penobscot River","ME","Millinocket",45.72,-69.25,"T","ll bk","PENOBSCOT"],
+["Kinnickinnic River","WI","River Falls",44.85,-92.63,"S","bn","KINNICKINNIC"],
+["Rush River","WI","El Paso",44.72,-92.36,"S","bn","RUSH"],
+["Timber Coulee Creek","WI","Westby",43.70,-91.00,"S","bn","TIMBER"],
+["West Fork Kickapoo River","WI","Avalanche",43.62,-90.73,"S","bn","KICKAPOO"],
+["Bois Brule River","WI","Brule",46.53,-91.59,"G","sh bn rb","BRULE"],
+["Root River","WI","Racine",42.74,-87.85,"G","sh sa","ROOT"],
+["Wisconsin River","WI","Prairie du Sac",43.30,-89.72,"W","sm","WISCONSIN"],
+["Menominee River","WI","Marinette",45.10,-87.63,"W","sm","MENOMINEE"],
+["St. Croix River","MN","Taylors Falls",45.40,-92.65,"W","sm","ST. CROIX"],
+["Whitewater River","MN","Elba",44.08,-92.02,"S","bn rb bk","WHITEWATER"],
+["Root River","MN","Lanesboro",43.72,-91.98,"S","bn","ROOT"],
+["Mississippi River","MN","St. Cloud – Monticello",45.40,-93.95,"W","sm","MISSISSIPPI"],
+["Kankakee River","IL","Kankakee River State Park",41.20,-88.00,"W","sm","KANKAKEE"],
+["Fox River","IL","Yorkville",41.64,-88.44,"W","sm","FOX"],
+["Current River","MO","Montauk",37.46,-91.68,"S","rb bn sm","CURRENT"],
+["Meramec River","MO","Maramec Spring",37.95,-91.53,"S","rb bn sm","MERAMEC"],
+["Eleven Point River","MO","Greer Spring",36.79,-91.33,"S","rb sm","ELEVEN POINT"],
+["Elk River","MO","Noel",36.55,-94.49,"W","sm","ELK"],
+["Lake Taneycomo","MO","Table Rock Dam",36.60,-93.31,"T","rb bn","TANEYCOMO"],
+["White River","AR","Bull Shoals Dam",36.36,-92.58,"T","bn rb ct","WHITE RIVER"],
+["North Fork River","AR","Norfork Dam",36.24,-92.24,"T","bn rb","NORTH FORK"],
+["Little Red River","AR","Heber Springs",35.51,-91.98,"T","bn rb","LITTLE RED"],
+["Buffalo National River","AR","Ponca – Pruitt",36.07,-93.35,"W","sm","BUFFALO"],
+["Lower Mountain Fork River","OK","Beavers Bend",34.12,-94.70,"T","rb bn","MOUNTAIN FORK"],
+["Guadalupe River","TX","Canyon Lake tailrace",29.87,-98.20,"T","rb bn","GUADALUPE"],
+["Madison River","MT","Ennis",45.35,-111.73,"F","bn rb","MADISON"],
+["Yellowstone River","MT","Livingston",45.66,-110.56,"F","bn rb ct","YELLOWSTONE"],
+["Missouri River","MT","Craig",47.07,-111.96,"T","rb bn","MISSOURI"],
+["Bighorn River","MT","Fort Smith",45.31,-107.93,"T","bn rb","BIGHORN"],
+["Big Hole River","MT","Melrose",45.63,-112.68,"F","bn rb bk","BIG HOLE"],
+["Beaverhead River","MT","Dillon",45.22,-112.64,"T","bn rb","BEAVERHEAD"],
+["Gallatin River","MT","Big Sky",45.28,-111.23,"F","rb bn ct","GALLATIN"],
+["Blackfoot River","MT","Ovando – Bonner",46.92,-113.60,"F","rb bn ct bt","BLACKFOOT"],
+["Clark Fork River","MT","Missoula",46.87,-114.00,"F","rb bn ct","CLARK FORK"],
+["Bitterroot River","MT","Hamilton",46.25,-114.16,"F","rb bn ct","BITTERROOT"],
+["Rock Creek","MT","Clinton",46.70,-113.68,"F","bn rb ct bt","ROCK C"],
+["Kootenai River","MT","Libby Dam",48.40,-115.40,"T","rb bt","KOOTENAI"],
+["North Platte River","WY","Grey Reef",42.55,-106.70,"T","rb bn","NORTH PLATTE"],
+["North Platte River","WY","Miracle Mile",42.03,-106.84,"T","rb bn ct","NORTH PLATTE"],
+["Snake River","WY","Wilson",43.50,-110.88,"F","ct","SNAKE"],
+["Firehole River","WY","Yellowstone NP",44.57,-110.83,"F","bn rb","FIREHOLE"],
+["Lamar River","WY","Yellowstone NP",44.88,-110.23,"F","ct rb","LAMAR"],
+["Henry's Fork","ID","Last Chance",44.42,-111.37,"S","rb","HENRYS FORK"],
+["South Fork Snake River","ID","Swan Valley",43.45,-111.33,"T","ct bn rb","SNAKE"],
+["Silver Creek","ID","Picabo",43.32,-114.10,"S","bn rb","SILVER"],
+["Big Wood River","ID","Ketchum",43.68,-114.36,"F","rb","BIG WOOD"],
+["Clearwater River","ID","Orofino",46.48,-116.25,"P","sh sa","CLEARWATER"],
+["St. Joe River","ID","Avery",47.25,-115.80,"F","ct bt","ST. JOE"],
+["Salmon River","ID","Riggins",45.42,-116.32,"P","sh sa","SALMON"],
+["South Platte River","CO","Deckers",39.25,-105.22,"T","rb bn","SOUTH PLATTE"],
+["South Platte River","CO","Dream Stream",38.95,-105.45,"T","rb bn ct","SOUTH PLATTE"],
+["Arkansas River","CO","Salida",38.54,-106.00,"F","bn rb","ARKANSAS"],
+["Frying Pan River","CO","Basalt",39.37,-106.87,"T","rb bn","FRYINGPAN"],
+["Roaring Fork River","CO","Carbondale",39.40,-107.20,"F","bn rb","ROARING FORK"],
+["Colorado River","CO","Pumphouse – Kremmling",39.99,-106.51,"F","bn rb","COLORADO"],
+["Gunnison River","CO","Black Canyon",38.61,-107.75,"T","bn rb","GUNNISON"],
+["Taylor River","CO","Almont",38.82,-106.60,"T","rb bn","TAYLOR"],
+["Blue River","CO","Silverthorne",39.63,-106.07,"T","rb bn","BLUE"],
+["Animas River","CO","Durango",37.28,-107.88,"F","bn rb","ANIMAS"],
+["Big Thompson River","CO","Estes Park",40.42,-105.32,"T","bn rb","BIG THOMPSON"],
+["Green River","UT","Flaming Gorge Dam",40.91,-109.35,"T","bn rb ct","GREEN"],
+["Provo River","UT","Middle Provo",40.55,-111.45,"T","bn","PROVO"],
+["Logan River","UT","Logan Canyon",41.76,-111.66,"F","bn ct","LOGAN"],
+["San Juan River","NM","Navajo Dam",36.80,-107.65,"T","rb bn","SAN JUAN"],
+["Rio Grande","NM","Taos Box",36.53,-105.71,"F","bn rb","RIO GRANDE"],
+["Colorado River","AZ","Lees Ferry",36.86,-111.59,"T","rb","COLORADO"],
+["Oak Creek","AZ","Sedona",34.94,-111.75,"F","rb bn","OAK"],
+["Hat Creek","CA","Cassel",40.92,-121.55,"S","rb bn","HAT"],
+["McCloud River","CA","Lower McCloud",41.14,-122.10,"F","rb bn","MCCLOUD"],
+["Upper Sacramento River","CA","Dunsmuir",41.20,-122.27,"F","rb bn","SACRAMENTO"],
+["Lower Sacramento River","CA","Redding",40.58,-122.37,"T","rb sh","SACRAMENTO"],
+["Pit River","CA","Pit 3 – 5",40.99,-121.95,"F","rb bn","PIT"],
+["Fall River","CA","Fall River Mills",41.05,-121.47,"S","rb","FALL"],
+["Truckee River","CA","Truckee",39.40,-120.10,"F","bn rb","TRUCKEE"],
+["Owens River","CA","Wild Trout Section",37.49,-118.53,"T","bn rb","OWENS"],
+["East Walker River","CA","Bridgeport",38.30,-119.20,"T","bn rb","WALKER"],
+["Trinity River","CA","Douglas City",40.65,-122.95,"P","sh sa","TRINITY"],
+["Deschutes River","OR","Maupin",45.18,-121.08,"F","rb sh","DESCHUTES"],
+["McKenzie River","OR","Blue River",44.15,-122.33,"F","rb ct","MCKENZIE"],
+["Metolius River","OR","Camp Sherman",44.50,-121.64,"S","rb bt","METOLIUS"],
+["Rogue River","OR","Shady Cove",42.61,-122.81,"P","sh sa","ROGUE"],
+["North Umpqua River","OR","Steamboat",43.34,-122.73,"P","sh","UMPQUA"],
+["Crooked River","OR","Prineville",44.28,-120.83,"T","rb","CROOKED"],
+["Williamson River","OR","Chiloquin",42.58,-121.86,"S","rb","WILLIAMSON"],
+["Yakima River","WA","Yakima Canyon",46.83,-120.47,"T","rb ct","YAKIMA"],
+["Skagit River","WA","Rockport",48.53,-121.43,"P","sh sa","SKAGIT"],
+["Hoh River","WA","Olympic Peninsula",47.84,-124.03,"P","sh sa","HOH"],
+["Sol Duc River","WA","Forks",48.06,-124.30,"P","sh sa","SOLEDUCK"],
+["Methow River","WA","Winthrop",48.37,-120.12,"F","rb ct sh","METHOW"],
+["Kenai River","AK","Cooper Landing",60.48,-149.94,"P","rb sa","KENAI"],
+["Russian River","AK","Cooper Landing",60.47,-149.98,"P","sa rb","RUSSIAN"]
+].map(r=>Object.assign({kind:"river",name:r[0],st:r[1],sec:r[2],lat:r[3],lon:r[4],type:r[5],sp:r[6].split(" "),key:r[7]},r[8]||{}));
+
+/* ================= time + formatting ================= */
+function parseLT(iso){const [d,t="00:00"]=iso.split("T");const [y,m,dd]=d.split("-").map(Number);const [h,mi]=t.split(":").map(Number);return Date.UTC(y,m-1,dd,h,mi)}
+function fmtTime(lt){const d=new Date(lt);let h=d.getUTCHours(),m=d.getUTCMinutes();const ap=h<12?"AM":"PM";h=h%12||12;return h+":"+String(m).padStart(2,"0")+" "+ap}
+const fmtHour=h=>(h%12||12)+(h<12?"a":"p"), fmtHourLong=h=>(h%12||12)+" "+(h<12?"AM":"PM");
+const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],WDL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],MO=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MOL=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function fmtDate(lt,long){const d=new Date(lt);return (long?WDL[d.getUTCDay()]+", ":"")+MO[d.getUTCMonth()]+" "+d.getUTCDate()}
+const COMPASS=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const compass=deg=>COMPASS[Math.round((((deg||0)%360)+360)%360/22.5)%16];
+function sky(c){if(c==null)return"—";if(c===0)return"Clear";if(c===1)return"Mostly clear";if(c===2)return"Partly cloudy";if(c===3)return"Overcast";if(c<=48)return"Fog";if(c<=57)return"Drizzle";if(c<=67)return c>=63?"Rain":"Light rain";if(c<=77)return"Snow";if(c<=82)return"Showers";if(c<=86)return"Snow showers";return"Thunderstorms"}
+const inHg=h=>(h*0.02953).toFixed(2);
+function distKm(a,b,c,d){const R=6371,t=Math.PI/180,x=Math.sin((c-a)*t/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin((d-b)*t/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+const mi=km=>km*0.621371;
+
+/* ================= moon ================= */
+const RAD=Math.PI/180,OBL=RAD*23.4397,SYN=29.530588853;
+function moonAlt(utc,lat,lon){
+  const d=utc/864e5-0.5+2440588-2451545;
+  const L=RAD*(218.316+13.176396*d),M=RAD*(134.963+13.064993*d),F=RAD*(93.272+13.22935*d);
+  const l=L+RAD*6.289*Math.sin(M),b=RAD*5.128*Math.sin(F);
+  const ra=Math.atan2(Math.sin(l)*Math.cos(OBL)-Math.tan(b)*Math.sin(OBL),Math.cos(l));
+  const dec=Math.asin(Math.sin(b)*Math.cos(OBL)+Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+  const H=RAD*(280.16+360.9856235*d)+RAD*lon-ra,phi=RAD*lat;
+  return Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+}
+function moonAge(utc){const jd=utc/864e5+2440587.5;const a=(jd-2451550.1)%SYN;return a<0?a+SYN:a}
+function phaseName(a){return["New moon","Waxing crescent","First quarter","Waxing gibbous","Full moon","Waning gibbous","Last quarter","Waning crescent"][Math.floor(a/SYN*8+.5)%8]}
+const illum=a=>(1-Math.cos(2*Math.PI*a/SYN))/2;
+function moonEvents(dayLT,off,lat,lon){
+  const step=6e5,h0=.133*RAD,ev=[];let p=null,p2=null,tp=null;
+  for(let lt=dayLT-3*36e5;lt<=dayLT+27*36e5;lt+=step){
+    const a=moonAlt(lt-off*1000,lat,lon);
+    if(p!==null){
+      if(p<h0&&a>=h0)ev.push({type:"rise",t:tp+step*(h0-p)/(a-p)});
+      if(p>=h0&&a<h0)ev.push({type:"set",t:tp+step*(p-h0)/(p-a)});
+      if(p2!==null){if(p>p2&&p>=a)ev.push({type:"transit",t:tp});if(p<p2&&p<=a)ev.push({type:"underfoot",t:tp})}
+    }
+    p2=p;p=a;tp=lt;
+  }
+  return{majors:ev.filter(e=>e.type==="transit"||e.type==="underfoot"),minors:ev.filter(e=>e.type==="rise"||e.type==="set")};
+}
+function moonSVG(age,size){
+  const r=size/2-1.5,cx=size/2,cy=size/2,k=Math.cos(2*Math.PI*age/SYN),wax=age<SYN/2;
+  const outer=wax?1:0,term=wax?(k>0?0:1):(k>0?1:0),rx=Math.abs(k)*r;
+  const lit=illum(age)<.02?"":'<path d="M'+cx+" "+(cy-r)+" A"+r+" "+r+" 0 0 "+outer+" "+cx+" "+(cy+r)+" A"+rx.toFixed(2)+" "+r+" 0 0 "+term+" "+cx+" "+(cy-r)+'Z" style="fill:var(--moon-lit)"/>';
+  return'<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+" "+size+'" aria-hidden="true"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" style="fill:var(--moon-dark);stroke:var(--line)"/>'+lit+"</svg>";
+}
+
+/* ================= state ================= */
+const state={place:null,sp:load("sl_sp","bn"),data:null,gauge:null,gauges:[],days:{},dayIdx:null,hourSel:null,saved:load("sl_saved",[]),usgsKey:load("sl_key",""),blocked:false};
+const pkey=p=>p.lat.toFixed(3)+","+p.lon.toFixed(3)+","+p.name;
+
+/* ================= network ================= */
+function isBlocked(e){return e instanceof TypeError}
+function showBlocked(){
+  if(state.blocked)return;state.blocked=true;const b=$("#netBanner");b.hidden=false;
+  b.innerHTML="<b>Live weather and river flows can’t load here.</b>This page can’t reach the internet. That happens when it’s shown as a preview inside another app (like the Claude app) or when you’re offline. River search, the fly box and moon times still work. Open the file in Chrome, Safari, Edge or Firefox to get forecasts and gauge data.";
+}
+async function getJSON(url){const r=await fetch(url);if(!r.ok){const e=new Error("HTTP "+r.status);e.status=r.status;throw e}return r.json()}
+async function geocode(q){
+  const j=await getJSON("https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name="+encodeURIComponent(q));
+  return(j.results||[]).map(r=>({kind:"place",name:r.name,sub:[r.admin2,r.admin1,r.country_code==="US"?null:r.country].filter(Boolean).join(", "),lat:r.latitude,lon:r.longitude,sp:[],type:null}));
+}
+async function forecast(p){
+  const q=new URLSearchParams({latitude:p.lat,longitude:p.lon,timezone:"auto",past_days:3,forecast_days:7,temperature_unit:"fahrenheit",wind_speed_unit:"mph",precipitation_unit:"inch",
+    hourly:"temperature_2m,pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,cloud_cover,precipitation_probability,precipitation,weather_code",
+    daily:"sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,weather_code",
+    current:"temperature_2m,pressure_msl,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"});
+  return getJSON("https://api.open-meteo.com/v1/forecast?"+q);
+}
+const cToF=c=>c*9/5+32;
+/* USGS: legacy WaterServices first (one call, keyless), modern OGC API as fallback.
+   A site can carry several time series for one parameter (different sensors, or retired ones whose
+   "latest" value is years old). Always keep the most recent reading, and drop readings older than 48 h. */
+const FRESH_MS=48*36e5;
+function keepLatest(g,param,val,time){
+  const t=Date.parse(time);if(isNaN(t)||val==null||isNaN(val))return;
+  if(!g.obs)g.obs={};const o=g.obs[param];
+  if(!o||t>o.t)g.obs[param]={v:val,t};
+}
+function finalizeGauge(g){
+  const o=g.obs||{},now=Date.now(),fresh=x=>x&&now-x.t<=FRESH_MS;
+  g.q=fresh(o["00060"])?o["00060"].v:null;g.qTime=g.q!=null?o["00060"].t:null;
+  g.gh=fresh(o["00065"])?o["00065"].v:null;
+  const tc=o["00010"],tf=o["00011"];
+  let best=null;
+  if(tc)best={v:cToF(tc.v),t:tc.t};
+  if(tf&&(!best||tf.t>best.t))best={v:tf.v,t:tf.t};
+  g.tF=null;g.tTime=null;g.tStale=null;
+  if(best&&now-best.t<=FRESH_MS){g.tF=best.v;g.tTime=best.t}else if(best)g.tStale=best.t;
+  return g;
+}
+async function findGauges(p,span){
+  const w=(p.lon-span).toFixed(4),s=(p.lat-span).toFixed(4),e=(p.lon+span).toFixed(4),n=(p.lat+span).toFixed(4);
+  try{
+    const j=await getJSON("https://waterservices.usgs.gov/nwis/iv/?format=json&siteType=ST&siteStatus=active&parameterCd=00060,00010,00011,00065&bBox="+[w,s,e,n].join(","));
+    const by={};
+    (j.value.timeSeries||[]).forEach(ts=>{
+      const si=ts.sourceInfo,id=si.siteCode[0].value,code=ts.variable.variableCode[0].value,nd=ts.variable.noDataValue;
+      const g=by[id]||(by[id]={id,name:si.siteName,lat:si.geoLocation.geogLocation.latitude,lon:si.geoLocation.geogLocation.longitude});
+      (ts.values||[]).forEach(m=>(m.value||[]).forEach(v=>{if(+v.value!==nd)keepLatest(g,code,+v.value,v.dateTime)}));
+    });
+    return{src:"legacy",list:Object.values(by).map(finalizeGauge)};
+  }catch(err){/* fall through to the modern API */}
+  const key=state.usgsKey?"&api_key="+encodeURIComponent(state.usgsKey):"";
+  const base="https://api.waterdata.usgs.gov/ogcapi/v0/collections/";
+  const bbox="&bbox="+[w,s,e,n].join(",");
+  const tryBoth=async path=>{try{return await getJSON(base.replace("/v0/","/v1/")+path)}catch(e){if(e.status===429)throw e;return getJSON(base+path)}};
+  const [locs,latest]=await Promise.all([
+    tryBoth("monitoring-locations/items?f=json&limit=200&site_type_code=ST"+bbox+key).catch(e=>{if(e.status===429)throw e;return tryBoth("monitoring-locations/items?f=json&limit=300"+bbox+key)}),
+    tryBoth("latest-continuous/items?f=json&limit=2000"+bbox+key)
+  ]);
+  const by={};
+  (locs.features||[]).forEach(f=>{const id=String(f.id||f.properties.id||f.properties.monitoring_location_id).replace(/^USGS-/,"");const c=f.geometry&&f.geometry.coordinates;if(c)by[id]={id,name:f.properties.monitoring_location_name||id,lat:c[1],lon:c[0]}});
+  (latest.features||[]).forEach(f=>{const pr=f.properties,id=String(pr.monitoring_location_id||"").replace(/^USGS-/,"");const g=by[id];if(!g||pr.value==null)return;
+    let code=pr.parameter_code,v=+pr.value;
+    if(code==="00010"&&/F/.test(pr.unit_of_measure||"")){code="00011"}
+    keepLatest(g,code,v,pr.time)});
+  return{src:"ogc",list:Object.values(by).map(finalizeGauge)};
+}
+/* pick, among several series for one parameter, the one whose last point is most recent */
+function freshestSeries(groups){
+  let best=[];groups.forEach(a=>{if(a.length&&(!best.length||a[a.length-1].t>best[best.length-1].t))best=a});return best;
+}
+async function gaugeSeries(id,src){
+  const out={q:[],t:[]};
+  if(src==="legacy"){
+    const j=await getJSON("https://waterservices.usgs.gov/nwis/iv/?format=json&period=P7D&parameterCd=00060,00010,00011&sites="+id);
+    const qs=[],ts_=[];
+    (j.value.timeSeries||[]).forEach(ts=>{const code=ts.variable.variableCode[0].value,nd=ts.variable.noDataValue;
+      (ts.values||[]).forEach(m=>{const arr=(m.value||[]).filter(v=>+v.value!==nd).map(v=>({t:Date.parse(v.dateTime),v:+v.value})).filter(x=>!isNaN(x.t)).sort((a,b)=>a.t-b.t);
+        if(code==="00060")qs.push(arr);if(code==="00010")ts_.push(arr.map(x=>({t:x.t,v:cToF(x.v)})));if(code==="00011")ts_.push(arr)})});
+    out.q=freshestSeries(qs);out.t=freshestSeries(ts_);return out;
+  }
+  const key=state.usgsKey?"&api_key="+encodeURIComponent(state.usgsKey):"";
+  const start=new Date(Date.now()-7*864e5).toISOString().slice(0,19)+"Z";
+  const get=async pc=>{const path="/collections/continuous/items?f=json&limit=5000&parameter_code="+pc+"&monitoring_location_id=USGS-"+id+"&datetime="+start+"/.."+key;
+    try{return await getJSON("https://api.waterdata.usgs.gov/ogcapi/v1"+path)}catch(e){return getJSON("https://api.waterdata.usgs.gov/ogcapi/v0"+path)}};
+  const group=(j,conv)=>{const by={};(j.features||[]).forEach(f=>{const pr=f.properties,k=pr.time_series_id||"x",t=Date.parse(pr.time),v=+pr.value;if(isNaN(t)||isNaN(v))return;
+    const isF=/F/.test(pr.unit_of_measure||"");(by[k]=by[k]||[]).push({t,v:conv?(isF?v:cToF(v)):v})});return Object.values(by).map(a=>a.sort((x,y)=>x.t-y.t))};
+  const [jq,jt]=await Promise.allSettled([get("00060"),get("00010")]);
+  if(jq.status==="fulfilled")out.q=freshestSeries(group(jq.value,false));
+  if(jt.status==="fulfilled")out.t=freshestSeries(group(jt.value,true));
+  return out;
+}
+function rankGauges(p,list){
+  const words=(p.name||"").toUpperCase().replace(/[’']/g,"").replace(/\b(RIVER|CREEK|FORK|RUN|SPRING|NORTH|SOUTH|EAST|WEST|BRANCH|LOWER|UPPER|LITTLE|BIG|THE|FALLS|LAKE)\b/g," ").split(/\s+/).filter(w=>w.length>2);
+  return list.filter(g=>g.q!=null||g.tF!=null).map(g=>{
+    const d=distKm(p.lat,p.lon,g.lat,g.lon),nm=g.name.toUpperCase().replace(/[’']/g,"");
+    const keys=p.key?p.key.replace(/[’']/g,"").split("|"):[];
+    const strong=p.kind==="river"&&keys.some(k=>nm.indexOf(k)>=0);
+    const match=strong||(p.kind==="river"&&!p.key&&words.some(w=>nm.indexOf(w)>=0));
+    return Object.assign({},g,{d,match,strong,rank:d-(strong?2000:match?1000:0)-(g.q!=null?5:0)});
+  }).sort((a,b)=>a.rank-b.rank);
+}
+
+/* ================= water model ================= */
+function flowStatus(series,latestQ){
+  const q=series&&series.q&&series.q.length>8?series.q:null;
+  if(!q){return latestQ!=null?{label:"Current",f:.85,clarity:"Unknown",detail:"No 7-day history from this gauge"}:null}
+  const now=q[q.length-1],tNow=now.t,val=now.v;
+  const near=t=>{let best=q[0];for(const x of q)if(Math.abs(x.t-t)<Math.abs(best.t-t))best=x;return best.v};
+  const v24=near(tNow-864e5),last48=q.filter(x=>x.t>=tNow-2*864e5).map(x=>x.v),max48=Math.max(...last48);
+  const sorted=q.map(x=>x.v).sort((a,b)=>a-b),med=sorted[Math.floor(sorted.length/2)];
+  let r={};const ratio=v24>0?val/v24:1;
+  if(ratio>1.6)r={label:"Spiking",f:.3,clarity:"Likely muddy"};
+  else if(ratio>1.15)r={label:"Rising",f:.6,clarity:"Off-color"};
+  else if(val<max48*.8)r={label:"Dropping",f:1,clarity:"Clearing"};
+  else r={label:"Stable",f:.9,clarity:"Normal"};
+  const rel=med>0?val/med:1;
+  if(rel>2){r.f*=.8;r.detail="High for the week ("+rel.toFixed(1)+"× the 7-day median)"}
+  else if(rel<.6){r.f*=.85;r.clarity="Low & clear";r.detail="Low for the week. Go light and fish shade."}
+  else r.detail=Math.round((ratio-1)*100)+"% vs. 24 hours ago";
+  r.med=med;r.val=val;return r;
+}
+function tempGauge(){
+  const g=state.gauge;if(g&&g.tF!=null)return g;
+  const p=state.place;
+  return state.gauges.find(x=>x.tF!=null&&(x.strong||(x.match&&p.type!=="T"))&&x.d<30)||null;
+}
+function waterModel(){
+  /* returns fn(di,h)->°F plus meta */
+  const D=state.data,p=state.place,type=p.type||"F",off=D.utc_offset_seconds,H=D.hourly;
+  const times=H.time.map(parseLT);
+  const air72=idx=>mean(H.temperature_2m.slice(Math.max(0,idx-72),idx+1).filter(v=>v!=null));
+  const idxOf=lt=>{let i=times.findIndex(t=>t>=lt);return i<0?times.length-1:i};
+  const month=new Date(Date.now()+off*1000).getUTCMonth();
+  const seasonal=Math.cos((month-7)/12*2*Math.PI); /* +1 in Aug, -1 in Feb */
+  const prof=p.profile||null;
+  const profAt=lt=>{const d=new Date(lt),m=d.getUTCMonth(),f=(d.getUTCDate()-15)/30,m2=(m+(f>=0?1:11))%12;return prof[m]+(prof[m2]-prof[m])*Math.abs(f)};
+  const base=(dayLT)=>{
+    const a=air72(idxOf(dayLT+12*36e5));
+    if(prof){const pv=profAt(dayLT);return pv+.2*(a-pv)}
+    if(type==="T")return 49+3*seasonal;
+    if(type==="S")return 52+.15*(a-52);
+    return clamp(.9*a+4,33,88);
+  };
+  const amp=prof?1.2:type==="T"?.6:type==="S"?.8:2;
+  const diurnal=h=>amp*Math.sin(2*Math.PI*(h-11)/24);
+  const nowLT=Date.now()+off*1000,todayLT=Math.floor(nowLT/864e5)*864e5,hNow=new Date(nowLT).getUTCHours();
+  let offset=0,src=prof?"Profile":"Estimated";
+  const g=tempGauge();
+  if(g){offset=g.tF-(base(todayLT)+diurnal(hNow));src="Gauge"}
+  return{src,at:(dayLT,h)=>clamp(base(dayLT)+diurnal(h)+offset,32,95),now:g?g.tF:clamp(base(todayLT)+diurnal(hNow),32,95),gauge:g};
+}
+function tempFit(t,s){
+  if(t>=s.stress)return .05;
+  if(t>=s.lo&&t<=s.hi)return 1;
+  if(t<s.lo){const d=s.lo-t;return d>=12?.2:1-d/12*.8}
+  return 1-(t-s.hi)/(s.stress-s.hi)*.75;
+}
+function seasonF(sp,month,p){
+  if(sp==="sh"||sp==="sa"){const pac=p.type==="P"||(p.type!=="G"&&p.lon<-115);return SEASON[sp+(pac?"_pac":"_gl")][month]}
+  return SEASON[sp][month];
+}
+function windF(w){if(w<5)return 1;if(w<10)return .85;if(w<15)return .6;if(w<20)return .35;return .15}
+function pressureF(dp6){if(dp6<=-3)return .6;if(dp6<=-.8)return 1;if(dp6<.8)return .75;if(dp6<2.5)return .55;return .35}
+function level(x){
+  if(x>=8.5)return{label:"Prime",c:"var(--accent)"};
+  if(x>=7)return{label:"Great",c:"var(--good)"};
+  if(x>=5)return{label:"Good",c:"var(--water)"};
+  if(x>=3)return{label:"Fair",c:"var(--fair)"};
+  return{label:"Tough",c:"var(--slow)"};
+}
+
+/* ================= day computation ================= */
+function computeDay(di){
+  const ck=di+"|"+state.sp;if(state.days[ck])return state.days[ck];
+  const D=state.data,p=state.place,off=D.utc_offset_seconds,S=SPECIES[state.sp],g=S.g;
+  const dayLT=parseLT(D.daily.time[di]),sunrise=parseLT(D.daily.sunrise[di]),sunset=parseLT(D.daily.sunset[di]);
+  const H=D.hourly,i0=H.time.findIndex(t=>parseLT(t)===dayLT),month=new Date(dayLT).getUTCMonth();
+  const {majors,minors}=moonEvents(dayLT,off,p.lat,p.lon);
+  const age=moonAge(dayLT+12*36e5-off*1000);
+  const WM=state.wm;
+  /* flow factor for this day */
+  const todayIdx=state.today;
+  const flow=state.flow,rainAt=i=>D.daily.precipitation_sum[i]||0;
+  let flowF;
+  if(di===todayIdx&&flow)flowF=flow.f;
+  else{
+    const r=rainAt(di-1)+.5*rainAt(di);
+    const base=flow?flow.f+(.9-flow.f)*Math.min(1,Math.max(0,di-todayIdx)/3):.9;
+    flowF=r>1?.4:r>.5?.65:r>.25?base*.9:base;
+  }
+  const sF=seasonF(state.sp,month,p),hours=[];
+  for(let h=0;h<24;h++){
+    const i=i0+h,tc=dayLT+h*36e5+18e5;
+    const pr=H.pressure_msl[i],dp6=pr-H.pressure_msl[Math.max(0,i-6)];
+    const cloud=H.cloud_cover[i]??0,wind=H.wind_speed_10m[i]??0,gust=H.wind_gusts_10m[i]??wind,air=H.temperature_2m[i],code=H.weather_code[i]??0;
+    const wt=WM.at(dayLT,h),T=tempFit(wt,S);
+    const dSun=Math.min(Math.abs(tc-sunrise),Math.abs(tc-sunset))/36e5,day=tc>sunrise&&tc<sunset;
+    let L;
+    if(g==="trout"){L=dSun<=1.5?1:day?.5+.45*cloud/100:.12}
+    else if(g==="migratory"){L=dSun<=1.5?1:day?.8+.2*cloud/100:.1}
+    else{L=dSun<=1.5?.95:day?.7+.15*cloud/100+((month>=9||month<=3)&&h>=12&&h<=17?.15:0):.12}
+    L=Math.min(1,L);
+    const dM=Math.min(...majors.map(e=>Math.abs(e.t-tc)/6e4),1e9),dm=Math.min(...minors.map(e=>Math.abs(e.t-tc)/6e4),1e9);
+    const majF=Math.exp(-((dM/75)**2)),minF=.8*Math.exp(-((dm/45)**2)),sol=Math.max(.2,majF,minF);
+    let X=1;if(code>=95)X=.05;else if([65,67,82].includes(code))X=.45;else if([63,81].includes(code))X=.7;else if(code>=51&&code<=61||code===80)X=g==="trout"?1:.85;
+    let s=.32*T+.2*L+.16*windF(Math.max(wind,gust*.7))+.1*pressureF(dp6)+.1*sol+.12*X;
+    const hot=wt>=S.stress;if(hot)s=Math.min(s,.15);
+    const adj=s*(.35+.65*flowF)*(.45+.55*sF);
+    hours.push({h,s:adj,disp:clamp(adj/.82*10,.3,10),wt,air,wind,gust,dir:H.wind_direction_10m[i],cloud,pp:H.precipitation_probability[i],code,pr,dp6,hot,
+      tags:{sun:dSun<=1.5?(Math.abs(tc-sunrise)<Math.abs(tc-sunset)?"Sunrise":"Sunset"):null,major:majF>.6,minor:minF>.5&&majF<=.6,overcast:day&&cloud>70,falling:dp6<=-.8&&dp6>-3}});
+  }
+  const fishing=hours.filter(x=>x.h>=5&&x.h<=21),top=fishing.map(x=>x.s).sort((a,b)=>b-a);
+  const raw=.55*mean(top.slice(0,4))+.45*mean(fishing.map(x=>x.s));
+  const index=clamp(raw/.82*10,.3,10);
+  let bi=6,bv=-1;for(let h=5;h<=20;h++){const v=hours[h].s+hours[h+1].s;if(v>bv){bv=v;bi=h}}
+  const t0=hours[bi].tags,t1=hours[bi+1].tags,reasons=[];
+  const sunT=t0.sun||t1.sun;if(sunT)reasons.push(sunT==="Sunrise"?"first light":"the evening");
+  if(t0.major||t1.major)reasons.push("a major solunar period");else if(t0.minor||t1.minor)reasons.push("a minor solunar period");
+  if(t0.overcast||t1.overcast)reasons.push("cloud cover");
+  if(!reasons.length)reasons.push("the most comfortable water temperature");
+  const dayHrs=hours.filter(x=>x.h>=7&&x.h<=19);
+  const wts=hours.map(x=>x.wt);
+  const r={di,dayLT,sunrise,sunset,hours,majors,minors,age,index,lvl:level(index),best:{start:bi,end:bi+2,reasons},sF,flowF,
+    hi:D.daily.temperature_2m_max[di],lo:D.daily.temperature_2m_min[di],ppMax:D.daily.precipitation_probability_max[di],rain:D.daily.precipitation_sum[di],
+    code:D.daily.weather_code[di],windAvg:mean(dayHrs.map(x=>x.wind)),windMax:D.daily.wind_speed_10m_max[di],gustMax:D.daily.wind_gusts_10m_max[di],
+    windDir:avgDir(dayHrs.map(x=>x.dir)),pTrend:hours[18].pr-hours[6].pr,pNoon:hours[12].pr,cloud:mean(dayHrs.map(x=>x.cloud)),
+    wtMin:Math.min(...wts),wtMax:Math.max(...wts),hotHours:hours.filter(x=>x.hot&&x.h>=6&&x.h<=21).length};
+  state.days[ck]=r;return r;
+}
+function avgDir(a){let x=0,y=0;a.forEach(d=>{x+=Math.cos(d*RAD);y+=Math.sin(d*RAD)});return(Math.atan2(y,x)/RAD+360)%360}
+const trendWord=dp=>dp<=-1.5?"Falling":dp>=1.5?"Rising":"Steady", trendArrow=dp=>dp<=-1.5?"↘":dp>=1.5?"↗":"→";
+
+/* ================= fly box ================= */
+const TYC={dry:"var(--accent)",nymph:"var(--water)",streamer:"var(--good)",terrestrial:"var(--fair)",egg:"var(--bad)",wet:"var(--slow)",topwater:"var(--accent)",swing:"var(--good)"};
+const HATCH={
+ 0:[["Midge (Griffith's gnat)","dry","20–24","Midday on mild days"],["Blue-winged olive","dry","18–22","Warm, overcast afternoons"],["Little black stonefly","nymph","16–18","Winter stones crawl out on sunny days"]],
+ 1:[["Midge","dry","20–24","Pods rising in slow flats"],["Blue-winged olive","dry","18–22","Cloudy afternoons"],["Little black stonefly","dry","16–18","Sunny afternoons"]],
+ 2:[["Blue-winged olive","dry","18–20","Best on drizzly, gray days"],["Early black caddis","dry","16–18","Afternoon"],["Little black stonefly","nymph","14–18","Near riffles"]],
+ 3:[["Hendrickson / Red quill","dry","12–14","East & Midwest, 2–4 PM"],["Blue-winged olive","dry","16–20","Overcast"],["Mother's Day caddis","dry","14–16","West, before runoff"],["March brown","dry","10–12","Scattered afternoon"]],
+ 4:[["Sulphur","dry","14–18","East & Midwest, evenings"],["Caddis (Elk hair)","dry","14–16","Evenings, skittered"],["Pale morning dun","dry","14–18","West, late morning"],["Salmonfly","dry","4–6","Western freestones, late May"]],
+ 5:[["Sulphur / PMD","dry","16–18","Evening spinner falls"],["Green drake","dry","8–10","Brief, famous hatch"],["Golden stonefly","dry","6–10","West"],["Isonychia","dry","10–12","East, evenings"]],
+ 6:[["Trico","dry","20–24","Early morning spinner falls"],["Hopper","terrestrial","8–12","Grassy banks, windy afternoons"],["Ant / beetle","terrestrial","14–18","Under overhanging trees"],["Yellow sally","dry","14–16","West, evenings"]],
+ 7:[["Hopper","terrestrial","8–12","Bank-slap on windy days"],["Trico","dry","20–24","Mornings"],["Ant / beetle","terrestrial","14–18","All day, shaded banks"],["White fly","dry","12–14","East, dusk"]],
+ 8:[["Hopper","terrestrial","8–12","Until the first hard frost"],["Blue-winged olive","dry","18–22","Returns on cloudy days"],["Isonychia","dry","10–12","East & Midwest"],["October caddis","dry","8–10","West, late month"]],
+ 9:[["Blue-winged olive","dry","18–22","Overcast afternoons are prime"],["October caddis","dry","8–10","West, evenings"],["Midge","dry","20–24","Slow water"],["Isonychia","nymph","10–12","Fast riffles"]],
+ 10:[["Blue-winged olive","dry","18–22","Gray, drizzly afternoons"],["Midge","dry","20–24","Midday"]],
+ 11:[["Midge","dry","20–24","Midday on mild days"],["Blue-winged olive","dry","20–22","Occasional"]]
+};
+function flyBox(sp,month,wt,cloud,flow,p){
+  const S=SPECIES[sp],g=S.g,list=[];const add=(n,t,sz,nt)=>list.push({n,t,sz,nt});
+  const high=flow&&(flow.label==="Spiking"||flow.label==="Rising"),low=flow&&/Low/.test(flow.clarity||"");
+  let setup="";
+  if(g==="trout"){
+    if(high){add("San Juan worm","nymph","10–14","Off-color, rising water");add("Sculpin / articulated streamer","streamer","2–6","Bang the banks in dirty water")}
+    let hatch=(HATCH[month]||[]).slice();
+    if(cloud>70)hatch.sort((a,b)=>(/olive/i.test(b[0])?1:0)-(/olive/i.test(a[0])?1:0));
+    if(wt!=null&&wt<42)hatch=hatch.filter(h=>/Midge|olive|stonefly/i.test(h[0]));
+    hatch.slice(0,high?2:3).forEach(h=>add(h[0],h[1],h[2],h[3]));
+    add(low?"Zebra midge":"Pheasant tail / Perdigon","nymph",low?"18–22":"14–18",low?"Long leader, small flies in low water":"Under an indicator or Euro-style");
+    if(!high)add(sp==="bt"?"Large baitfish streamer":"Woolly bugger / sculpin","streamer",sp==="bt"?"1/0–4":"4–8",sp==="bn"&&month>=8&&month<=10?"Pre-spawn browns hit streamers hard":"Low light and after rain");
+    if((month>=9||month<=1)&&(sp==="rb"||sp==="bn"||sp==="bk"))add("Egg (Glo bug / Nuke egg)","egg","14–18","Below spawning fish");
+    setup=sp==="bt"?"7–8 wt, sink-tip, 0X–2X":low?"3–5 wt, 9–12 ft leader, 6X–7X":"4–5 wt, 9 ft leader, 5X dries / 4X nymphs";
+  }else if(sp==="sm"){
+    const cold=wt!=null&&wt<55,warm=wt==null||wt>=64;
+    if(warm&&!high)add("Popper / slider","topwater","2–6","Dawn, dusk and shaded banks");
+    add("Crayfish pattern","nymph","4–8",cold?"Dead-drift it slowly along the bottom":"Hop it through rocky runs");
+    add("Clouser minnow","streamer","2–6",high?"Bright colors in off-color water":"Strip past boulders and ledges");
+    add("Hellgrammite / Woolly bugger","nymph","4–8","Riffles above deep pools");
+    if(month>=8&&month<=10)add("Baitfish streamer","streamer","1/0–2","Fall feed: bass chase shad and shiners");
+    setup="6–7 wt, floating line, 0X–2X (sink-tip when cold)";
+  }else if(sp==="sh"){
+    add("Egg (Glo bug / Nuke egg)","egg","10–14","Dead-drift through tailouts");
+    add("Sucker spawn","egg","12–14","Great Lakes staple");
+    add("Stonefly / Hex nymph","nymph","8–12",p.type==="G"?"Great Lakes tributaries":"Deep runs");
+    add("Swung intruder / spey fly","swing","2–4",wt!=null&&wt<38?"Slow the swing, go deep":"Two-hand swing on long runs");
+    setup="7–8 wt single-hand or 11–13 ft switch/spey, 0X–2X fluoro";
+  }else if(sp==="sa"){
+    add("Egg-sucking leech","streamer","2–6","Staging pools");
+    add("Comet / flash fly","streamer","4–6","Bright fish fresh from the lake or sea");
+    add("Clouser (coho)","streamer","2–4","Coho chase stripped flies");
+    setup="8–9 wt, sink-tip, 0X–10 lb tippet";
+  }else if(sp==="ll"){
+    add("Smelt streamer (Grey Ghost)","streamer","4–8","Spring and fall when smelt run");
+    add("Caddis","dry","14–16","Summer evenings");
+    add("Pheasant tail / Hare's ear","nymph","12–16","Pocket water");
+    setup="5–6 wt, sink-tip for streamers, 3X–4X";
+  }
+  return{list:list.slice(0,6),setup};
+}
+function warnings(sp,d,month,p){
+  const w=[],S=SPECIES[sp];
+  if(d&&d.hotHours>0)w.push({hot:true,t:"Water hits "+Math.round(d.wtMax)+"°F. That’s stressful for "+S.n.toLowerCase()+" (limit ~"+S.stress+"°F). Fish early, land fish fast, or switch to smallmouth."});
+  if((sp==="bn"||sp==="bk")&&month>=9&&month<=11)w.push({t:"Brown and brook trout spawn now. Watch for redds (clean, bright gravel) and don’t wade through them."});
+  if(sp==="bt")w.push({t:"Bull trout are protected in many waters. Check your state’s rules before targeting them."});
+  if(sp==="sa"&&month>=8&&month<=10)w.push({t:"Spawning salmon are in the rivers. Fish fair: snagging is illegal, and give fish on redds space."});
+  if(sp==="sm"&&month>=4&&month<=5)w.push({t:"Smallmouth may be guarding nests. Release them quickly, right where you caught them."});
+  const rv=p.kind==="river"?RIVERS_BY[p.name+"|"+p.sec]:null;if(rv&&rv.note)w.push({t:rv.note});
+  if(p.type==="T")w.push({t:"Tailwater: flows follow dam releases. Check the dam’s release schedule before wading."});
+  return w;
+}
+
+/* ================= search ================= */
+const qEl=$("#q"),resEl=$("#results");let tmr=null,lastRes=[];
+function localSearch(v){
+  const toks=v.toLowerCase().replace(/[’']/g,"").split(/\s+/).filter(Boolean);
+  return RIVERS.map(r=>{const hay=(r.name+" "+r.st+" "+r.sec+" "+(ALIAS[r.name+"|"+r.sec]||"")+" "+(STATES[r.st]||"")+" "+r.sp.map(s=>SPECIES[s].n).join(" ")).toLowerCase().replace(/[’']/g,"");
+    if(!toks.every(t=>hay.indexOf(t)>=0))return null;const s=(r.name.toLowerCase().startsWith(toks[0])?0:1);return{r,s}}).filter(Boolean).sort((a,b)=>a.s-b.s).slice(0,8).map(x=>x.r);
+}
+const RIVERS_BY={};RIVERS.forEach(r=>RIVERS_BY[r.name+"|"+r.sec]=r);
+const ALIAS={"East Fork Whitewater River|Brookville Lake tailwater":"brookville east fork white river tailwater trout"};
+const STATES={IN:"Indiana",MI:"Michigan",OH:"Ohio",KY:"Kentucky",TN:"Tennessee",NC:"North Carolina",GA:"Georgia",VA:"Virginia",WV:"West Virginia",MD:"Maryland",PA:"Pennsylvania",NY:"New York",CT:"Connecticut",MA:"Massachusetts",VT:"Vermont",NH:"New Hampshire",ME:"Maine",WI:"Wisconsin",MN:"Minnesota",IL:"Illinois",MO:"Missouri",AR:"Arkansas",OK:"Oklahoma",TX:"Texas",MT:"Montana",WY:"Wyoming",ID:"Idaho",CO:"Colorado",UT:"Utah",NM:"New Mexico",AZ:"Arizona",CA:"California",OR:"Oregon",WA:"Washington",AK:"Alaska"};
+function spMini(sp){return'<span class="sp-mini">'+sp.map(s=>"<i>"+SHORT[s]+"</i>").join("")+"</span>"}
+qEl.addEventListener("input",()=>{clearTimeout(tmr);const v=qEl.value.trim();if(v.length<2){resEl.hidden=true;return}renderResults(v,localSearch(v),null,true);tmr=setTimeout(()=>onlineSearch(v),350)});
+qEl.addEventListener("keydown",e=>{if(e.key==="Enter"&&lastRes[0]){e.preventDefault();pick(lastRes[0])}if(e.key==="Escape")resEl.hidden=true});
+document.addEventListener("click",e=>{if(!e.target.closest(".search"))resEl.hidden=true});
+async function onlineSearch(v){
+  const loc=localSearch(v);
+  if(state.blocked){renderResults(v,loc,[],false);return}
+  try{renderResults(v,loc,await geocode(v),false)}catch(e){if(isBlocked(e))showBlocked();renderResults(v,loc,[],false,true)}
+}
+function renderResults(v,loc,places,pending,failed){
+  resEl.hidden=false;resEl.innerHTML="";lastRes=[];
+  const grp=t=>{const d=document.createElement("div");d.className="grp";d.textContent=t;resEl.appendChild(d)};
+  const btn=(p,main,sub,right)=>{const b=document.createElement("button");b.innerHTML="<span>"+main+'<div class="sub">'+sub+"</div></span>"+(right||"");b.onclick=()=>pick(p);resEl.appendChild(b);lastRes.push(p)};
+  if(loc.length){grp("Rivers & streams");loc.forEach(r=>btn(r,esc(r.name),esc(r.sec+", "+r.st+" · "+TYPES[r.type]),spMini(r.sp)))}
+  if(places&&places.length){grp("Towns & places");places.forEach(p=>btn(p,esc(p.name),esc(p.sub),""))}
+  if(pending&&!state.blocked){const m=document.createElement("div");m.className="msg";m.textContent="Looking up towns and places…";resEl.appendChild(m)}
+  if(!pending&&!loc.length&&(!places||!places.length)){const m=document.createElement("div");m.className="msg";
+    m.textContent=state.blocked||failed?"No rivers in the built-in list match “"+v+"”. Town search needs an internet connection.":"Nothing matches “"+v+"”. Try a river name, a state, or a nearby town.";resEl.appendChild(m)}
+}
+function pick(p){resEl.hidden=true;qEl.value="";qEl.blur();selectPlace(p)}
+
+/* ================= saved + species ================= */
+function isSaved(p){return state.saved.some(s=>pkey(s)===pkey(p))}
+$("#saveBtn").onclick=()=>{const p=state.place;if(!p)return;if(isSaved(p))state.saved=state.saved.filter(s=>pkey(s)!==pkey(p));else state.saved.push(p);store("sl_saved",state.saved);renderChips();renderSave()};
+function renderSave(){const on=state.place&&isSaved(state.place);$("#saveBtn").setAttribute("aria-pressed",on);$("#saveBtn").textContent=on?"★ Saved":"☆ Save"}
+function renderChips(){
+  const el=$("#chips");el.innerHTML='<span class="lbl">My waters</span>';
+  if(!state.saved.length){el.insertAdjacentHTML("beforeend",'<span class="note">Save a river to jump back to it.</span>');return}
+  state.saved.forEach(s=>{const c=document.createElement("span");c.className="chip"+(state.place&&pkey(s)===pkey(state.place)?" on":"");
+    const a=document.createElement("button");a.textContent=s.name+(s.sec?" · "+s.sec:"");a.onclick=()=>selectPlace(s);
+    const x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Remove "+s.name);
+    x.onclick=()=>{state.saved=state.saved.filter(t=>pkey(t)!==pkey(s));store("sl_saved",state.saved);renderChips();renderSave()};
+    c.append(a,x);el.appendChild(c)});
+}
+function renderSpecies(){
+  const el=$("#species"),here=state.place?state.place.sp:[];el.innerHTML="";
+  SP_ORDER.forEach(k=>{const b=document.createElement("button");b.setAttribute("aria-pressed",k===state.sp);
+    b.innerHTML=(here.includes(k)?'<span class="dot" title="Found here"></span>':"")+SPECIES[k].n;
+    b.onclick=()=>{state.sp=k;store("sl_sp",k);renderSpecies();renderNearby();renderAll()};el.appendChild(b)});
+}
+
+/* ================= main flow ================= */
+async function selectPlace(p){
+  if(p.kind==="river"&&RIVERS_BY[p.name+"|"+p.sec])p=RIVERS_BY[p.name+"|"+p.sec];
+  state.place=p;state.days={};state.gauge=null;state.gauges=[];state.flow=null;state.series=null;store("sl_last",p);
+  if(p.sp&&p.sp.length&&!p.sp.includes(state.sp)){state.sp=p.sp[0];store("sl_sp",state.sp)}
+  $("#placeName").textContent=p.name;
+  $("#badges").innerHTML=(p.type?'<span class="badge">'+TYPES[p.type]+"</span>":'<span class="badge">Town / place</span>')+(p.st?'<span class="badge">'+esc(p.st)+"</span>":"");
+  renderSpecies();renderChips();renderSave();renderNearby();
+  $("#hero").classList.add("loading");$("#errBox").innerHTML="";$("#water").innerHTML='<p class="note">Finding the nearest stream gauge…</p>';
+  const wx=forecast(p).then(d=>{state.data=d},e=>{state.data=null;if(isBlocked(e))showBlocked();throw e});
+  const gz=state.blocked?Promise.reject(new TypeError("blocked")):loadGauges(p);
+  await Promise.allSettled([wx,gz]);
+  if(state.place!==p)return;
+  $("#hero").classList.remove("loading");
+  if(state.data){
+    const off=state.data.utc_offset_seconds,todayLT=Math.floor((Date.now()+off*1000)/864e5)*864e5;
+    let ti=state.data.daily.time.findIndex(t=>parseLT(t)===todayLT);if(ti<0)ti=3;
+    state.today=ti;state.dayIdx=ti;state.hourSel=null;renderAll();
+  }else renderOffline();
+}
+async function loadGauges(p){
+  let res;
+  try{res=await findGauges(p,p.kind==="river"?.3:.25)}catch(e){if(isBlocked(e)){state.gaugeErr=e.status===429?"rate":"net"}else state.gaugeErr=e.status===429?"rate":"err";return}
+  state.gaugeErr=null;state.gaugeSrc=res.src;
+  state.gauges=rankGauges(p,res.list).slice(0,6);
+  if(state.gauges.length)await pickGauge(state.gauges.find(g=>g.q!=null)||state.gauges[0],true);
+}
+async function pickGauge(g,silent){
+  state.gauge=g;state.series=null;state.flow=null;
+  try{state.series=await gaugeSeries(g.id,state.gaugeSrc)}catch(e){}
+  state.flow=flowStatus(state.series,g.q);
+  const st=state.series&&state.series.t.length?state.series.t[state.series.t.length-1]:null;
+  if(st&&Date.now()-st.t<=FRESH_MS&&(!g.tTime||st.t>=g.tTime)){g.tF=st.v;g.tTime=st.t;g.tStale=null}
+  const sq=state.series&&state.series.q.length?state.series.q[state.series.q.length-1]:null;
+  if(sq&&Date.now()-sq.t<=FRESH_MS&&(!g.qTime||sq.t>=g.qTime)){g.q=sq.v;g.qTime=sq.t}
+  if(!silent){state.days={};renderAll()}
+}
+
+function renderAll(){
+  if(!state.data){renderOffline();return}
+  state.wm=waterModel();
+  const d=computeDay(state.dayIdx),D=state.data,off=D.utc_offset_seconds,isToday=state.dayIdx===state.today,p=state.place,S=SPECIES[state.sp];
+  const month=new Date(d.dayLT).getUTCMonth();
+  $("#spName").textContent=S.n.toLowerCase();
+  $("#placeWhen").textContent=(p.kind==="river"?p.sec+", "+(STATES[p.st]||p.st):p.sub||"")+" · "+fmtDate(d.dayLT,true);
+  $("#idx").textContent=d.index.toFixed(1);
+  const C=2*Math.PI*45;$("#dialArc").setAttribute("stroke-dasharray",(C*d.index/10).toFixed(1)+" "+C.toFixed(1));$("#dialArc").setAttribute("stroke",d.lvl.c);
+  $("#tag").textContent=d.lvl.label+" for "+S.n.toLowerCase();$("#tag").style.background=d.lvl.c;
+  const b=d.best;$("#best").innerHTML="Best window: <b>"+fmtHourLong(b.start)+" – "+fmtHourLong(b.end%24)+"</b>";
+  const wtxt="Water "+Math.round(d.wtMin)+"–"+Math.round(d.wtMax)+"°F"+(state.wm.src==="Estimated"?" (est.)":"");
+  const fit=d.wtMax>=S.stress?"too warm by afternoon":d.wtMin>=S.lo&&d.wtMax<=S.hi?"right in the comfort range":d.wtMax<S.lo?"on the cold side, so fish slow and deep":"workable";
+  let s=wtxt+", "+fit+". ";
+  const fl=state.flow;
+  if(isToday&&fl)s+="Flows "+fl.label.toLowerCase()+", clarity "+fl.clarity.toLowerCase()+". ";
+  else if(d.rain>.5)s+="Heavy rain ("+d.rain.toFixed(2)+" in) could raise and color the water. ";
+  s+=(d.windAvg<5?"Light wind for casting":Math.round(d.windAvg)+" mph "+compass(d.windDir)+" wind"+(d.gustMax>20?", gusts to "+Math.round(d.gustMax):""))+" under "+sky(d.code).toLowerCase()+" skies. ";
+  s+="Best when "+joinList(b.reasons)+" lines up.";
+  if(d.sF<.35)s+=" It’s outside the main season for "+S.n.toLowerCase()+" here.";
+  $("#summary").textContent=s;
+  $("#warns").innerHTML=warnings(state.sp,d,month,p).map(w=>'<div class="warn'+(w.hot?" hot":"")+'">'+esc(w.t)+"</div>").join("");
+
+  /* chart */
+  $("#chartWrap").hidden=false;
+  const chart=$("#chart");chart.querySelectorAll(".band,.nowline").forEach(n=>n.remove());
+  const pct=lt=>clamp((lt-d.dayLT)/864e5*100,0,100);
+  const band=(cls,a,z)=>{const L=pct(a),R=pct(z);if(R-L<=0)return;const e=document.createElement("div");e.className="band "+cls;e.style.left=L+"%";e.style.width=(R-L)+"%";chart.prepend(e)};
+  band("sun",d.sunrise-54e5,d.sunrise+54e5);band("sun",d.sunset-54e5,d.sunset+54e5);
+  d.minors.forEach(e=>band("minor",e.t-18e5,e.t+18e5));d.majors.forEach(e=>band("major",e.t-36e5,e.t+36e5));
+  if(isToday){const n=document.createElement("div");n.className="nowline";n.style.left=pct(Date.now()+off*1000)+"%";chart.appendChild(n)}
+  const bars=$("#bars");bars.innerHTML="";
+  if(state.hourSel==null)state.hourSel=isToday?new Date(Date.now()+off*1000).getUTCHours():b.start;
+  d.hours.forEach(hr=>{const bt=document.createElement("button");bt.style.height=(hr.disp*10)+"%";bt.style.background=hr.hot?"var(--bad)":level(hr.disp).c;
+    bt.setAttribute("aria-label",fmtHourLong(hr.h)+", "+hr.disp.toFixed(1));bt.setAttribute("aria-pressed",hr.h===state.hourSel);
+    bt.onclick=()=>{state.hourSel=hr.h;bars.querySelectorAll("button").forEach((x,i)=>x.setAttribute("aria-pressed",i===hr.h));renderHour(d)};bars.appendChild(bt)});
+  $("#axis").innerHTML=Array.from({length:24},(_,h)=>"<span>"+(h%6===0?fmtHour(h):"")+"</span>").join("");
+  renderHour(d);
+
+  renderWater(d,isToday);
+  /* weather */
+  const cur=D.current,uc=isToday&&cur;
+  $("#conds").innerHTML=[
+    ["Air",uc?Math.round(cur.temperature_2m)+"°F":Math.round(d.hi)+"°F","High "+Math.round(d.hi)+"° · Low "+Math.round(d.lo)+"°"],
+    ["Sky",sky(uc?cur.weather_code:d.code),(d.ppMax??0)+"% chance · "+(d.rain||0).toFixed(2)+" in"],
+    ["Wind",(uc?Math.round(cur.wind_speed_10m):Math.round(d.windAvg))+" mph "+compass(uc?cur.wind_direction_10m:d.windDir),"Gusts to "+Math.round(d.gustMax)+" mph"],
+    ["Barometer",inHg(uc?cur.pressure_msl:d.pNoon)+" "+trendArrow(d.pTrend),trendWord(d.pTrend)+", 6a–6p"],
+    ["Sunrise",fmtTime(d.sunrise),"First light ~"+fmtTime(d.sunrise-18e5)],
+    ["Sunset",fmtTime(d.sunset),"Last light ~"+fmtTime(d.sunset+18e5)]
+  ].map(([k,v,m])=>"<div><dt>"+k+"</dt><dd>"+esc(v)+"<small>"+esc(m)+"</small></dd></div>").join("");
+  renderMoon(d.dayLT,d.age,d.majors,d.minors);
+  renderFlies(month,(d.wtMin+d.wtMax)/2,d.cloud,isToday?state.flow:(d.rain>.5?{label:"Rising",clarity:"Off-color"}:state.flow),d.dayLT);
+  renderOutlook();
+}
+function joinList(a){return a.length<2?a[0]:a.slice(0,-1).join(", ")+" and "+a[a.length-1]}
+function renderHour(d){
+  const hr=d.hours[state.hourSel];if(!hr)return;
+  const bits=[];if(hr.tags.sun)bits.push(hr.tags.sun.toLowerCase());if(hr.tags.major)bits.push("major period");if(hr.tags.minor)bits.push("minor period");
+  $("#hourInfo").innerHTML="<b>"+fmtHourLong(hr.h)+"</b> · "+hr.disp.toFixed(1)+"/10 · water "+Math.round(hr.wt)+"°F"+(hr.hot?" (too warm)":"")+" · air "+Math.round(hr.air)+"°F · "+Math.round(hr.wind)+" mph "+compass(hr.dir)+
+    " · "+sky(hr.code)+(hr.pp!=null?" "+hr.pp+"%":"")+(bits.length?" · "+esc(bits.join(", ")):"");
+}
+function thermHTML(t,S){
+  const lo=32,hi=86,x=v=>clamp((v-lo)/(hi-lo)*100,0,100);
+  const grad="linear-gradient(90deg,var(--cold) 0%,var(--cold) "+x(S.lo-8)+"%,var(--fair) "+x(S.lo-8)+"%,var(--fair) "+x(S.lo)+"%,var(--good) "+x(S.lo)+"%,var(--good) "+x(S.hi)+"%,var(--fair) "+x(S.hi)+"%,var(--fair) "+x(S.stress)+"%,var(--bad) "+x(S.stress)+"%,var(--bad) 100%)";
+  return'<div class="therm" style="background:'+grad+'" role="img" aria-label="Water '+Math.round(t)+'°F against the '+S.n+' range">'+(t!=null?'<span class="mk" style="left:'+x(t)+'%"></span>':"")+
+    '</div><div class="thermaxis"><span>32°</span><span>Ideal '+S.lo+"–"+S.hi+"°</span><span>Stress "+S.stress+"°+</span><span>86°</span></div>";
+}
+function renderWater(d,isToday){
+  const S=SPECIES[state.sp],wm=state.wm,g=state.gauge,fl=state.flow;
+  const t=isToday?wm.now:(d.wtMin+d.wtMax)/2;
+  const zone=t>=S.stress?["Too warm","var(--bad)"]:t>=S.lo&&t<=S.hi?["Ideal","var(--good)"]:t<S.lo-8?["Cold","var(--cold)"]:["Fair","var(--fair)"];
+  let h='<div class="bigrow"><div class="big">'+Math.round(t)+'°F<small>'+(isToday?"water now":"water, day avg")+'</small></div><span class="pill" style="background:'+zone[1]+'">'+zone[0]+"</span></div>"+thermHTML(t,S)+
+    '<p class="note" style="margin:6px 0 0">'+(wm.src==="Gauge"?"USGS reading of "+cToFmt(wm.gauge.tF)+" at "+esc(titleCase(wm.gauge.name))+", "+whenStr(wm.gauge.tTime)+(isToday?".":". Projected ahead with the air forecast."):(state.gauge&&state.gauge.tStale?"This gauge’s last temperature reading is from "+whenStr(state.gauge.tStale)+", too old to use. ":"")+wm.src==="Profile"?"Estimated from this river’s typical temperatures for the date and recent air temperatures. No temperature sensor nearby.":"Estimated from recent air temperatures and river type. No temperature sensor nearby.")+"</p>";
+  h+='<div class="divider"></div>';
+  if(g&&g.q!=null){
+    h+='<div class="bigrow"><div class="big">'+Math.round(g.q).toLocaleString()+'<small>cfs</small></div>'+(fl?'<span class="pill" style="background:'+(fl.f>=.9?"var(--good)":fl.f>=.6?"var(--fair)":"var(--bad)")+'">'+fl.label+"</span>":"")+"</div>";
+    if(fl)h+='<p class="note" style="margin:4px 0 0">Clarity: '+esc(fl.clarity)+" · "+esc(fl.detail||"")+(g.gh!=null?" · gage "+g.gh.toFixed(2)+" ft":"")+"</p>";
+    if(state.series&&state.series.q.length>8)h+=sparkSVG(state.series.q);
+  }else if(g){h+='<p class="note">This gauge reports temperature only.</p>'}
+  else{
+    h+='<p class="note">'+(state.gaugeErr==="rate"?"USGS is rate limiting requests. Wait a bit or add a free API key under “How the fishability score works.”":state.gaugeErr==="net"||state.blocked?"Couldn’t reach USGS for flow data.":state.gaugeErr?"USGS flow data didn’t load. Try again shortly.":"No active USGS stream gauge within about 20 miles.")+"</p>";
+  }
+  if(g){
+    h+='<p class="note" style="margin:10px 0 0">Gauge: <a href="https://waterdata.usgs.gov/monitoring-location/USGS-'+g.id+'/" target="_blank" rel="noopener">'+esc(titleCase(g.name))+"</a> · "+mi(g.d).toFixed(1)+" mi"+(g.match?"":" (different stream)")+"</p>";
+    if(state.gauges.length>1){h+='<div class="gsel">'+state.gauges.map((x,i)=>'<button data-i="'+i+'" aria-pressed="'+(x.id===g.id)+'"><span>'+esc(titleCase(x.name))+'</span><span class="v">'+(x.q!=null?Math.round(x.q)+" cfs":"")+(x.tF!=null?" "+Math.round(x.tF)+"°":"")+" · "+mi(x.d).toFixed(0)+" mi</span></button>").join("")+"</div>"}
+  }
+  $("#water").innerHTML=h;
+  $("#water").querySelectorAll(".gsel button").forEach(b=>b.onclick=()=>{const gg=state.gauges[+b.dataset.i];pickGauge(gg,false)});
+}
+function cToFmt(f){return f.toFixed(1)+"°F"}
+function whenStr(t){const d=new Date(t),age=Date.now()-t;const tm=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+  return age<864e5&&new Date().getDate()===d.getDate()?"taken "+tm:d.toLocaleDateString([],{month:"short",day:"numeric",year:age>300*864e5?"numeric":undefined})+" "+tm}
+function titleCase(s){return s.toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase()).replace(/\b(Nr|At|Ab|Bl|Nc|Near)\b/g,m=>m.toLowerCase()).replace(/\b(Mi|Mn|Wi|In|Oh|Pa|Ny|Va|Wv|Mt|Wy|Id|Co|Ut|Nm|Az|Ca|Or|Wa|Ak|Tn|Nc|Ga|Ky|Md|Ct|Ma|Vt|Nh|Me|Mo|Ar|Ok|Tx|Il)$/,m=>m.toUpperCase())}
+function sparkSVG(q){
+  const W=300,H=72,pad=4,vals=q.map(x=>x.v),mn=Math.min(...vals),mx=Math.max(...vals),t0=q[0].t,t1=q[q.length-1].t;
+  const X=t=>pad+(t-t0)/(t1-t0||1)*(W-pad*2),Y=v=>H-14-(mx===mn?.5:(v-mn)/(mx-mn))*(H-26);
+  const step=Math.max(1,Math.floor(q.length/150)),pts=q.filter((_,i)=>i%step===0||i===q.length-1).map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1));
+  const last=q[q.length-1];
+  return'<svg class="spark" viewBox="0 0 '+W+" "+H+'" role="img" aria-label="7-day flow from '+Math.round(mn)+" to "+Math.round(mx)+' cfs">'+
+    '<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+(H-14)+'" y2="'+(H-14)+'" style="stroke:var(--line)"/>'+
+    '<polygon points="'+X(t0).toFixed(1)+","+(H-14)+" "+pts.join(" ")+" "+X(t1).toFixed(1)+","+(H-14)+'" style="fill:var(--band-major)"/>'+
+    '<polyline points="'+pts.join(" ")+'" style="fill:none;stroke:var(--water);stroke-width:2"/>'+
+    '<circle cx="'+X(last.t).toFixed(1)+'" cy="'+Y(last.v).toFixed(1)+'" r="3.5" style="fill:var(--water);stroke:var(--surface);stroke-width:1.5"/>'+
+    '<text x="'+pad+'" y="'+(H-2)+'" style="fill:var(--muted);font:10px var(--f-data)">7 days ago · low '+Math.round(mn)+'</text>'+
+    '<text x="'+(W-pad)+'" y="'+(H-2)+'" text-anchor="end" style="fill:var(--muted);font:10px var(--f-data)">high '+Math.round(mx)+" cfs · now</text></svg>";
+}
+function renderMoon(dayLT,age,majors,minors){
+  $("#moonRow").innerHTML=moonSVG(age,60)+"<div><strong>"+phaseName(age)+"</strong><span>"+Math.round(illum(age)*100)+"% lit · day "+Math.floor(age)+" of 29.5</span></div>";
+  const inDay=e=>e.t>=dayLT&&e.t<dayLT+864e5;
+  const rows=[...majors.filter(inDay).map(e=>({c:"major",l:"Major",t:e.t,a:e.t-36e5,b:e.t+36e5,w:e.type==="transit"?"moon overhead":"moon underfoot"})),
+    ...minors.filter(inDay).map(e=>({c:"minor",l:"Minor",t:e.t,a:e.t-18e5,b:e.t+18e5,w:e.type==="rise"?"moonrise":"moonset"}))].sort((x,y)=>x.t-y.t);
+  $("#periods").innerHTML=rows.length?rows.map(r=>'<li class="'+r.c+'"><div><b>'+r.l+'</b> <small class="note">'+r.w+"</small></div><span>"+fmtTime(r.a)+" – "+fmtTime(r.b)+"</span></li>").join(""):"<li>No solunar periods on this date.</li>";
+}
+function renderFlies(month,wt,cloud,flow,dayLT){
+  const fb=flyBox(state.sp,month,wt,cloud,flow,state.place);
+  $("#flyWhen").textContent=SPECIES[state.sp].n+", "+(dayLT?fmtDate(dayLT):MOL[month]);
+  $("#flies").innerHTML=fb.list.map(f=>'<li><span class="ty" style="background:'+(TYC[f.t]||"var(--slow)")+'">'+f.t+'</span><span class="nm">'+esc(f.n)+"<small>"+esc(f.nt)+'</small></span><span class="sz">#'+esc(f.sz)+"</span></li>").join("");
+  $("#setup").innerHTML="<b>Setup</b>"+esc(fb.setup);
+}
+function renderOutlook(){
+  const el=$("#days");el.innerHTML="";const D=state.data;
+  for(let di=state.today;di<D.daily.time.length&&di<state.today+7;di++){
+    const d=computeDay(di),b=document.createElement("button");b.className="day";b.dataset.di=di;
+    const wd=di===state.today?"Today":WD[new Date(d.dayLT).getUTCDay()];
+    b.innerHTML='<div class="d">'+wd+"<small>"+fmtDate(d.dayLT)+'</small></div><div class="n" style="color:'+d.lvl.c+'">'+d.index.toFixed(1)+'</div><div class="meter"><i style="width:'+d.index*10+"%;background:"+d.lvl.c+'"></i></div><div class="t"><span>'+Math.round(d.hi)+"° · "+(d.rain||0).toFixed(1)+'"</span>'+moonSVG(d.age,16)+"</div>";
+    b.setAttribute("aria-pressed",di===state.dayIdx);b.setAttribute("aria-label",wd+", "+d.lvl.label+", "+d.index.toFixed(1));
+    b.onclick=()=>{state.dayIdx=di;state.hourSel=null;renderAll()};el.appendChild(b);
+  }
+}
+function renderNearby(){
+  const p=state.place,list=RIVERS.filter(r=>!(r.name===p.name&&r.sec===p.sec)).map(r=>({r,d:distKm(p.lat,p.lon,r.lat,r.lon)}))
+    .filter(x=>x.r.sp.includes(state.sp)||x.d<60).sort((a,b)=>a.d-b.d).slice(0,6);
+  $("#nearTitle").textContent="Nearby waters";
+  $("#near").innerHTML="";
+  list.forEach(({r,d})=>{const li=document.createElement("li"),b=document.createElement("button");
+    b.innerHTML='<span class="nm">'+esc(r.name)+'</span><span class="ds">'+Math.round(mi(d))+' mi</span><span class="sub">'+esc(r.sec+", "+r.st+" · "+TYPES[r.type])+spMini(r.sp)+"</span>";
+    b.onclick=()=>{window.scrollTo({top:0,behavior:"smooth"});selectPlace(r)};li.appendChild(b);$("#near").appendChild(li)});
+}
+function renderOffline(){
+  const p=state.place,off=-new Date().getTimezoneOffset()*60,dayLT=Math.floor((Date.now()+off*1000)/864e5)*864e5,month=new Date(dayLT).getUTCMonth(),S=SPECIES[state.sp];
+  $("#placeWhen").textContent=(p.kind==="river"?p.sec+", "+(STATES[p.st]||p.st):p.sub||"")+" · "+fmtDate(dayLT,true);
+  $("#idx").textContent="–";$("#dialArc").setAttribute("stroke-dasharray","0 999");$("#tag").textContent="No live forecast";$("#tag").style.background="var(--slow)";
+  $("#best").textContent="";
+  const sF=seasonF(state.sp,month,p);
+  $("#summary").textContent=MOL[month]+" is "+(sF>=.85?"prime season":sF>=.55?"a decent month":sF>=.3?"a slow month":"mostly out of season")+" for "+S.n.toLowerCase()+" here. Moon times and flies below are calculated without the internet.";
+  $("#warns").innerHTML=warnings(state.sp,null,month,p).map(w=>'<div class="warn">'+esc(w.t)+"</div>").join("");
+  $("#errBox").innerHTML=state.blocked?"":'<div class="err">The weather service didn’t respond. Check your connection, then retry.<br><button id="retry">Retry</button></div>';
+  const rt=$("#retry");if(rt)rt.onclick=()=>selectPlace(p);
+  $("#chartWrap").hidden=true;
+  $("#water").innerHTML='<p class="note">Water temperature and flows need a connection to USGS.</p>'+thermHTML(null,S);
+  $("#conds").innerHTML='<div><dt>Weather</dt><dd>—<small>Needs a connection</small></dd></div>';
+  $("#days").innerHTML='<p class="note">The 7-day outlook appears once the forecast loads.</p>';
+  const ev=moonEvents(dayLT,off,p.lat,p.lon);renderMoon(dayLT,moonAge(dayLT+12*36e5-off*1000),ev.majors,ev.minors);
+  renderFlies(month,null,50,null,dayLT);
+}
+
+/* settings */
+$("#keyIn").value=state.usgsKey;
+$("#keySave").onclick=()=>{state.usgsKey=$("#keyIn").value.trim();store("sl_key",state.usgsKey);$("#keySave").textContent="Saved";if(state.place)selectPlace(state.place)};
+
+renderChips();
+selectPlace(load("sl_last",null)||RIVERS[0]);
+})();
+</script>
+</body>
+</html>
