@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#12201F"/>
+<circle cx="360" cy="150" r="42" fill="#EB7A40"/>
+<path d="M80 250 Q140 200 200 250 T320 250 T440 250" fill="none" stroke="#9FD3DB" stroke-width="30" stroke-linecap="round"/>
+<path d="M80 320 Q140 270 200 320 T320 320 T440 320" fill="none" stroke="#5FAAB8" stroke-width="30" stroke-linecap="round"/>
+<path d="M80 390 Q140 340 200 390 T320 390 T440 390" fill="none" stroke="#2F6F78" stroke-width="30" stroke-linecap="round"/></svg>
