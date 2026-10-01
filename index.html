@@ -667,7 +667,7 @@ function keepLatest(g,param,val,time){
 function finalizeGauge(g){
   const o=g.obs||{},now=Date.now(),fresh=x=>x&&now-x.t<=FRESH_MS;
   g.q=fresh(o["00060"])?o["00060"].v:null;g.qTime=g.q!=null?o["00060"].t:null;
-  g.gh=fresh(o["00065"])?o["00065"].v:null;
+  g.gh=fresh(o["00065"])?o["00065"].v:null;g.ghTime=g.gh!=null?o["00065"].t:null;
   const tc=o["00010"],tf=o["00011"];
   let best=null;
   if(tc)best={v:cToF(tc.v),t:tc.t};
@@ -709,14 +709,14 @@ function freshestSeries(groups){
   let best=[];groups.forEach(a=>{if(a.length&&(!best.length||a[a.length-1].t>best[best.length-1].t))best=a});return best;
 }
 async function gaugeSeries(id,src){
-  const out={q:[],t:[]};
+  const out={q:[],t:[],h:[]};
   if(src==="legacy"){
-    const j=await getJSON("https://waterservices.usgs.gov/nwis/iv/?format=json&period=P7D&parameterCd=00060,00010,00011&sites="+id);
-    const qs=[],ts_=[];
+    const j=await getJSON("https://waterservices.usgs.gov/nwis/iv/?format=json&period=P7D&parameterCd=00060,00010,00011,00065&sites="+id);
+    const qs=[],ts_=[],hs=[];
     (j.value.timeSeries||[]).forEach(ts=>{const code=ts.variable.variableCode[0].value,nd=ts.variable.noDataValue;
       (ts.values||[]).forEach(m=>{const arr=(m.value||[]).filter(v=>+v.value!==nd).map(v=>({t:Date.parse(v.dateTime),v:+v.value})).filter(x=>!isNaN(x.t)).sort((a,b)=>a.t-b.t);
-        if(code==="00060")qs.push(arr);if(code==="00010")ts_.push(arr.map(x=>({t:x.t,v:cToF(x.v)})));if(code==="00011")ts_.push(arr)})});
-    out.q=freshestSeries(qs);out.t=freshestSeries(ts_);return out;
+        if(code==="00060")qs.push(arr);if(code==="00010")ts_.push(arr.map(x=>({t:x.t,v:cToF(x.v)})));if(code==="00011")ts_.push(arr);if(code==="00065")hs.push(arr)})});
+    out.q=freshestSeries(qs);out.t=freshestSeries(ts_);out.h=freshestSeries(hs);return out;
   }
   const key=state.usgsKey?"&api_key="+encodeURIComponent(state.usgsKey):"";
   const start=new Date(Date.now()-7*864e5).toISOString().slice(0,19)+"Z";
@@ -724,14 +724,15 @@ async function gaugeSeries(id,src){
     try{return await getJSON("https://api.waterdata.usgs.gov/ogcapi/v1"+path)}catch(e){return getJSON("https://api.waterdata.usgs.gov/ogcapi/v0"+path)}};
   const group=(j,conv)=>{const by={};(j.features||[]).forEach(f=>{const pr=f.properties,k=pr.time_series_id||"x",t=Date.parse(pr.time),v=+pr.value;if(isNaN(t)||isNaN(v))return;
     const isF=/F/.test(pr.unit_of_measure||"");(by[k]=by[k]||[]).push({t,v:conv?(isF?v:cToF(v)):v})});return Object.values(by).map(a=>a.sort((x,y)=>x.t-y.t))};
-  const [jq,jt]=await Promise.allSettled([get("00060"),get("00010")]);
+  const [jq,jt,jh]=await Promise.allSettled([get("00060"),get("00010"),get("00065")]);
   if(jq.status==="fulfilled")out.q=freshestSeries(group(jq.value,false));
   if(jt.status==="fulfilled")out.t=freshestSeries(group(jt.value,true));
+  if(jh.status==="fulfilled")out.h=freshestSeries(group(jh.value,false));
   return out;
 }
 function rankGauges(p,list){
   const words=(p.name||"").toUpperCase().replace(/[’']/g,"").replace(/\b(RIVER|CREEK|FORK|RUN|SPRING|NORTH|SOUTH|EAST|WEST|BRANCH|LOWER|UPPER|LITTLE|BIG|THE|FALLS|LAKE)\b/g," ").split(/\s+/).filter(w=>w.length>2);
-  return list.filter(g=>g.q!=null||g.tF!=null).map(g=>{
+  return list.filter(g=>g.q!=null||g.tF!=null||g.gh!=null).map(g=>{
     const d=distKm(p.lat,p.lon,g.lat,g.lon),nm=g.name.toUpperCase().replace(/[’']/g,"");
     const keys=p.key?p.key.replace(/[’']/g,"").split("|"):[];
     const strong=p.kind==="river"&&keys.some(k=>nm.indexOf(k)>=0);
@@ -1025,6 +1026,8 @@ async function pickGauge(g,silent){
   if(st&&Date.now()-st.t<=FRESH_MS&&(!g.tTime||st.t>=g.tTime)){g.tF=st.v;g.tTime=st.t;g.tStale=null}
   const sq=state.series&&state.series.q.length?state.series.q[state.series.q.length-1]:null;
   if(sq&&Date.now()-sq.t<=FRESH_MS&&(!g.qTime||sq.t>=g.qTime)){g.q=sq.v;g.qTime=sq.t}
+  const sh=state.series&&state.series.h.length?state.series.h[state.series.h.length-1]:null;
+  if(sh&&Date.now()-sh.t<=FRESH_MS){g.gh=sh.v;g.ghTime=sh.t}
   if(!silent){state.days={};renderAll()}
 }
 
@@ -1100,19 +1103,29 @@ function renderWater(d,isToday){
   const t=isToday?wm.now:(d.wtMin+d.wtMax)/2;
   const zone=t>=S.stress?["Too warm","var(--bad)"]:t>=S.lo&&t<=S.hi?["Ideal","var(--good)"]:t<S.lo-8?["Cold","var(--cold)"]:["Fair","var(--fair)"];
   let h='<div class="bigrow"><div class="big">'+Math.round(t)+'°F<small>'+(isToday?"water now":"water, day avg")+'</small></div><span class="pill" style="background:'+zone[1]+'">'+zone[0]+"</span></div>"+thermHTML(t,S)+
-    '<p class="note" style="margin:6px 0 0">'+(wm.src==="Gauge"?"USGS reading of "+cToFmt(wm.gauge.tF)+" at "+esc(titleCase(wm.gauge.name))+", "+whenStr(wm.gauge.tTime)+(isToday?".":". Projected ahead with the air forecast."):(state.gauge&&state.gauge.tStale?"This gauge’s last temperature reading is from "+whenStr(state.gauge.tStale)+", too old to use. ":"")+wm.src==="Profile"?"Estimated from this river’s typical temperatures for the date and recent air temperatures. No temperature sensor nearby.":"Estimated from recent air temperatures and river type. No temperature sensor nearby.")+"</p>";
+    '<p class="note" style="margin:6px 0 0">'+(wm.src==="Gauge"?"USGS reading of "+cToFmt(wm.gauge.tF)+" at "+esc(titleCase(wm.gauge.name))+", "+whenStr(wm.gauge.tTime)+(isToday?".":". Projected ahead with the air forecast."):(state.gauge&&state.gauge.tStale?"This gauge’s last temperature reading is from "+whenStr(state.gauge.tStale)+", too old to use. ":"")+(wm.src==="Profile"?"Estimated from this river’s typical temperatures for the date and recent air temperatures. No temperature sensor nearby.":"Estimated from recent air temperatures and river type. No temperature sensor nearby."))+"</p>";
   h+='<div class="divider"></div>';
   if(g&&g.q!=null){
     h+='<div class="bigrow"><div class="big">'+Math.round(g.q).toLocaleString()+'<small>cfs</small></div>'+(fl?'<span class="pill" style="background:'+(fl.f>=.9?"var(--good)":fl.f>=.6?"var(--fair)":"var(--bad)")+'">'+fl.label+"</span>":"")+"</div>";
-    if(fl)h+='<p class="note" style="margin:4px 0 0">Clarity: '+esc(fl.clarity)+" · "+esc(fl.detail||"")+(g.gh!=null?" · gage "+g.gh.toFixed(2)+" ft":"")+"</p>";
+    if(fl)h+='<p class="note" style="margin:4px 0 0">Clarity: '+esc(fl.clarity)+" · "+esc(fl.detail||"")+"</p>";
     if(state.series&&state.series.q.length>8)h+=sparkSVG(state.series.q);
-  }else if(g){h+='<p class="note">This gauge reports temperature only.</p>'}
-  else{
+  }
+  if(g&&g.gh!=null){
+    const hs=state.series&&state.series.h.length>8?state.series.h:null;
+    let chg=null;
+    if(hs){const last=hs[hs.length-1];let ref=hs[0];for(const x of hs)if(Math.abs(x.t-(last.t-864e5))<Math.abs(ref.t-(last.t-864e5)))ref=x;chg=last.v-ref.v}
+    const pill=chg==null?"":Math.abs(chg)<.1?["Steady","var(--good)"]:chg>0?["Up "+chg.toFixed(2)+" ft","var(--fair)"]:["Down "+Math.abs(chg).toFixed(2)+" ft","var(--water)"];
+    h+='<div class="bigrow" style="margin-top:14px"><div class="big">'+g.gh.toFixed(2)+'<small>ft water height</small></div>'+(pill?'<span class="pill" style="background:'+pill[1]+'">'+pill[0]+"</span>":"")+"</div>";
+    h+='<p class="note" style="margin:4px 0 0">Gage height (river stage) at the gauge'+(chg!=null?", change over the last 24 hours":"")+(g.ghTime?" · "+whenStr(g.ghTime):"")+"</p>";
+    if(hs)h+=sparkSVG(hs,{unit:"ft",dec:2,what:"water height",color:"var(--accent)",fill:"var(--band-sun)"});
+  }
+  if(g&&g.q==null&&g.gh==null){h+='<p class="note">This gauge reports temperature only.</p>'}
+  if(!g){
     h+='<p class="note">'+(state.gaugeErr==="rate"?"USGS is rate limiting requests. Wait a bit or add a free API key under “How the fishability score works.”":state.gaugeErr==="net"||state.blocked?"Couldn’t reach USGS for flow data.":state.gaugeErr?"USGS flow data didn’t load. Try again shortly.":"No active USGS stream gauge within about 20 miles.")+"</p>";
   }
   if(g){
     h+='<p class="note" style="margin:10px 0 0">Gauge: <a href="https://waterdata.usgs.gov/monitoring-location/USGS-'+g.id+'/" target="_blank" rel="noopener">'+esc(titleCase(g.name))+"</a> · "+mi(g.d).toFixed(1)+" mi"+(g.match?"":" (different stream)")+"</p>";
-    if(state.gauges.length>1){h+='<div class="gsel">'+state.gauges.map((x,i)=>'<button data-i="'+i+'" aria-pressed="'+(x.id===g.id)+'"><span>'+esc(titleCase(x.name))+'</span><span class="v">'+(x.q!=null?Math.round(x.q)+" cfs":"")+(x.tF!=null?" "+Math.round(x.tF)+"°":"")+" · "+mi(x.d).toFixed(0)+" mi</span></button>").join("")+"</div>"}
+    if(state.gauges.length>1){h+='<div class="gsel">'+state.gauges.map((x,i)=>'<button data-i="'+i+'" aria-pressed="'+(x.id===g.id)+'"><span>'+esc(titleCase(x.name))+'</span><span class="v">'+(x.q!=null?Math.round(x.q)+" cfs":x.gh!=null?x.gh.toFixed(1)+" ft":"")+(x.tF!=null?" "+Math.round(x.tF)+"°":"")+" · "+mi(x.d).toFixed(0)+" mi</span></button>").join("")+"</div>"}
   }
   $("#water").innerHTML=h;
   $("#water").querySelectorAll(".gsel button").forEach(b=>b.onclick=()=>{const gg=state.gauges[+b.dataset.i];pickGauge(gg,false)});
@@ -1121,18 +1134,19 @@ function cToFmt(f){return f.toFixed(1)+"°F"}
 function whenStr(t){const d=new Date(t),age=Date.now()-t;const tm=d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
   return age<864e5&&new Date().getDate()===d.getDate()?"taken "+tm:d.toLocaleDateString([],{month:"short",day:"numeric",year:age>300*864e5?"numeric":undefined})+" "+tm}
 function titleCase(s){return s.toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase()).replace(/\b(Nr|At|Ab|Bl|Nc|Near)\b/g,m=>m.toLowerCase()).replace(/\b(Mi|Mn|Wi|In|Oh|Pa|Ny|Va|Wv|Mt|Wy|Id|Co|Ut|Nm|Az|Ca|Or|Wa|Ak|Tn|Nc|Ga|Ky|Md|Ct|Ma|Vt|Nh|Me|Mo|Ar|Ok|Tx|Il)$/,m=>m.toUpperCase())}
-function sparkSVG(q){
+function sparkSVG(q,o){
+  o=o||{unit:"cfs",dec:0,what:"flow",color:"var(--water)",fill:"var(--band-major)"};const fmt=v=>o.dec?v.toFixed(o.dec):Math.round(v).toLocaleString();
   const W=300,H=72,pad=4,vals=q.map(x=>x.v),mn=Math.min(...vals),mx=Math.max(...vals),t0=q[0].t,t1=q[q.length-1].t;
   const X=t=>pad+(t-t0)/(t1-t0||1)*(W-pad*2),Y=v=>H-14-(mx===mn?.5:(v-mn)/(mx-mn))*(H-26);
   const step=Math.max(1,Math.floor(q.length/150)),pts=q.filter((_,i)=>i%step===0||i===q.length-1).map(x=>X(x.t).toFixed(1)+","+Y(x.v).toFixed(1));
   const last=q[q.length-1];
-  return'<svg class="spark" viewBox="0 0 '+W+" "+H+'" role="img" aria-label="7-day flow from '+Math.round(mn)+" to "+Math.round(mx)+' cfs">'+
+  return'<svg class="spark" viewBox="0 0 '+W+" "+H+'" role="img" aria-label="7-day '+o.what+' from '+fmt(mn)+" to "+fmt(mx)+" "+o.unit+'">'+
     '<line x1="'+pad+'" x2="'+(W-pad)+'" y1="'+(H-14)+'" y2="'+(H-14)+'" style="stroke:var(--line)"/>'+
-    '<polygon points="'+X(t0).toFixed(1)+","+(H-14)+" "+pts.join(" ")+" "+X(t1).toFixed(1)+","+(H-14)+'" style="fill:var(--band-major)"/>'+
-    '<polyline points="'+pts.join(" ")+'" style="fill:none;stroke:var(--water);stroke-width:2"/>'+
-    '<circle cx="'+X(last.t).toFixed(1)+'" cy="'+Y(last.v).toFixed(1)+'" r="3.5" style="fill:var(--water);stroke:var(--surface);stroke-width:1.5"/>'+
-    '<text x="'+pad+'" y="'+(H-2)+'" style="fill:var(--muted);font:10px var(--f-data)">7 days ago · low '+Math.round(mn)+'</text>'+
-    '<text x="'+(W-pad)+'" y="'+(H-2)+'" text-anchor="end" style="fill:var(--muted);font:10px var(--f-data)">high '+Math.round(mx)+" cfs · now</text></svg>";
+    '<polygon points="'+X(t0).toFixed(1)+","+(H-14)+" "+pts.join(" ")+" "+X(t1).toFixed(1)+","+(H-14)+'" style="fill:'+o.fill+'"/>'+
+    '<polyline points="'+pts.join(" ")+'" style="fill:none;stroke:'+o.color+';stroke-width:2"/>'+
+    '<circle cx="'+X(last.t).toFixed(1)+'" cy="'+Y(last.v).toFixed(1)+'" r="3.5" style="fill:'+o.color+';stroke:var(--surface);stroke-width:1.5"/>'+
+    '<text x="'+pad+'" y="'+(H-2)+'" style="fill:var(--muted);font:10px var(--f-data)">7 days ago · low '+fmt(mn)+'</text>'+
+    '<text x="'+(W-pad)+'" y="'+(H-2)+'" text-anchor="end" style="fill:var(--muted);font:10px var(--f-data)">high '+fmt(mx)+" "+o.unit+" · now</text></svg>";
 }
 function renderMoon(dayLT,age,majors,minors){
   $("#moonRow").innerHTML=moonSVG(age,60)+"<div><strong>"+phaseName(age)+"</strong><span>"+Math.round(illum(age)*100)+"% lit · day "+Math.floor(age)+" of 29.5</span></div>";
